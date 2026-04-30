@@ -16,8 +16,8 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Build Project
-        working-directory: ./IPS_PROJECT
-        run: dotnet build
+        # تم مسح working-directory لأنه مسبب الـ No such file or directory
+        run: dotnet build 
 
 
   build-and-scan:
@@ -27,7 +27,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build Local Image for Scan
-        run: docker build -t ips-app:test ./IPS_PROJECT
+        # تم تعديل المسار هنا ليكون النقطة الحالية (.) بدلاً من الفولدر القديم
+        run: docker build -t ips-app:test .
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
@@ -48,14 +49,11 @@ jobs:
           docker tag ips-app:test ${{ secrets.DOCKER_USERNAME }}/ips-app:latest
           docker push ${{ secrets.DOCKER_USERNAME }}/ips-app:latest
 
-  # ─────────────────────────────────────────
-  # 3. النشر على Kubernetes (CD)
-  # ─────────────────────────────────────────
   deploy:
     needs: build-and-scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4   # محتاجينه عشان نرفع الـ manifests
+      - uses: actions/checkout@v4
 
       - name: Copy K8s Manifests to VM
         uses: appleboy/scp-action@v0.1.7
@@ -63,8 +61,8 @@ jobs:
           host: ${{ secrets.VM_IP }}
           username: ${{ secrets.VM_USER }}
           password: ${{ secrets.VM_SSH_KEY }}
-          source: "k8s/"            # ← فولدر الـ manifests في الـ repo بتاعك
-          target: "~/ips-k8s/"     # ← هيتنسخ هنا على الـ VM
+          source: "k8s/"
+          target: "~/ips-k8s/"
 
       - name: Deploy to Kubernetes via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -73,20 +71,9 @@ jobs:
           username: ${{ secrets.VM_USER }}
           password: ${{ secrets.VM_SSH_KEY }}
           script: |
-            # ── تأكد إن minikube شغال ──
             minikube status | grep -q "Running" || minikube start
-
-            # ── طبّق الـ manifests (كريت أو أبديت تلقائي) ──
             kubectl apply -f ~/ips-k8s/k8s/
-
-            # ── Force pull للـ image الجديدة ──
-            kubectl rollout restart deployment/ips-app -n ips-app
-
-            # ── استنى لحد ما الـ deployment يكمّل ──
-            kubectl rollout status deployment/ips-app -n ips-app --timeout=120s
-
-            # ── نظّف الـ images القديمة ──
+            kubectl rollout restart deployment/ips-app
+            kubectl rollout status deployment/ips-app --timeout=120s
             docker image prune -f
-
-            # ── اطبع الـ URL عشان تعرف التطبيق شغال ──
-            echo "✅ App is live at: http://$(minikube ip):30500"
+            echo "✅ App is live at: http://$(minikube ip):30080" # اتأكد من رقم الـ NodePort بتاعك
