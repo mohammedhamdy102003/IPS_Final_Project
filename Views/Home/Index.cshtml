@@ -1,0 +1,113 @@
+﻿@{
+   // ViewData["Title"] = "IPS User Console - AI-Based IPS";
+    ViewData["PageCss"] = "landing.css";
+}
+
+
+
+<title>IPS AI</title>
+
+<link rel="stylesheet" href="landing.css">
+
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+ 
+
+<body>
+
+    <!-- Loader -->
+    <div id="loader">
+        <h1 class="scan">Initializing AI Engine...</h1>
+    </div>
+
+    <!-- Navbar -->
+    <nav id="navbar">
+
+        <div class="logo">IPS AI</div>
+
+        <ul class="nav-links">
+            <li>Features</li>
+            <li>Hamdy</li>
+            <li>About</li>
+        </ul>
+
+        <div class="auth-buttons">
+            <a asp-controller="Account" asp-action="Login" class="signin">
+              Sign In</a>
+            <a asp-controller="Account" asp-action="Register" class="register">
+              Register</a>
+        </div>
+
+        <div class="hamburger" onclick="toggleMenu()">
+            ☰
+        </div>
+
+    </nav>
+
+    <!-- Mobile Menu -->
+    <div id="mobileMenu">
+        <a href="#">Features</a>
+        <a href="#">Threat Map</a>
+        <a href="#">About</a>
+        <a href="login.html">Sign In</a>
+        <a href="signup.html">Register</a>
+    </div>
+
+    <!-- Hero -->
+    <section class="hero">
+        <canvas id="network"></canvas>
+        <div id="globe"></div>
+        <div class="hero-content">
+            <h1 class="glow-text">AI-Powered Intrusion Prevention</h1>
+            <p class="sub-text">for the Next Generation Networks</p>
+            <small>Detect. Analyze. Stop threats before they strike.</small>
+            <br>
+            <br />
+            <br />
+            <br />
+           <a asp-controller="Account" asp-action="Login"  class="cta">
+           
+                Get Started
+            </a>
+
+        </div>
+    </section>
+
+    <!-- Counter -->
+    <section class="counter">
+        <h2><span id="threat-number">0</span> Threats Blocked Today</h2>
+    </section>
+
+    <!-- Features -->
+ 
+
+    <section class="features">
+        <div class="card card-blue show">
+            <div class="icon">🔍</div>
+            <h2>Detect</h2>
+            <p>AI Monitoring in Real Time</p>
+        </div>
+
+        <div class="card card-purple show">
+            <div class="icon">🧠</div>
+            <h2>Analyze</h2>
+            <p>Identify Malicious Patterns</p>
+        </div>
+
+        <div class="card card-red show">
+            <div class="icon">🛡️</div>
+            <h2>Prevent</h2>
+            <p>Block Threats Instantly</p>
+        </div>
+    </section>
+
+    @section Scripts {
+        <script src="~/js/landing.js"></script>
+    }
+
+
+
+
+</body>
+ 

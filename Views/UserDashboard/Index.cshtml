@@ -1,0 +1,165 @@
+﻿@model IPS_PROJECT.ViewModels.UserDashboardViewModel
+
+@{
+    ViewData["Title"] = "IPS User Console - AI-Based IPS";
+    ViewData["PageCss"] = "dashboard.css";
+}
+
+ 
+ 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+
+<script>
+    const connection = new signalR.HubConnectionBuilder()
+        .withUrl("/securityHub")
+        .build();
+
+    connection.on("ReceiveSecurityUpdate", function (isSecure) {
+
+        const title = document.getElementById("systemStatusTitle");
+        const message = document.getElementById("systemStatusMessage");
+
+        if (isSecure) {
+            title.innerHTML = "System Secure ✔";
+            message.innerHTML = "Your network is protected and monitored";
+        } else {
+            title.innerHTML = "System Not Secure ⚠";
+            message.innerHTML = "Security breach detected! SOC team is notified.";
+        }
+    });
+
+    connection.start().catch(err => console.error(err.toString()));
+</script>
+
+<script>
+    function testAttack() {
+        connection.invoke("SendSecurityUpdate", false)
+            .catch(err => console.error(err.toString()));
+    }
+</script>
+
+ 
+ 
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-badge" aria-hidden="true">
+                    <i class="fa-solid fa-shield"></i>
+                </div>
+                <div class="brand-title">AI-Based IPS</div>
+            </div>
+
+            <nav class="nav" aria-label="Sidebar">
+                <a class="active" href="#" aria-current="page"><i class="fa-solid fa-table-cells"></i>Overview</a>
+            </nav>
+
+            <div class="sidebar-footer">SYSTEM v3.6.1</div>
+        </aside>
+
+        <!-- Main -->
+        <main class="main">
+            <!-- Topbar -->
+            <header class="topbar">
+                <div class="search" role="search">
+                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                    <input type="text" placeholder="Global search for threats, IPs, or logs..." aria-label="Global search" />
+                </div>
+
+                <div class="top-actions">
+                    <div class="segmented" role="tablist" aria-label="View mode">
+                        <button id="adminViewBtn" role="tab" aria-selected="false" type="button">Admin View</button>
+                        <button class="active" id="userViewBtn" role="tab" aria-selected="true" type="button">User View</button>
+                    </div>
+
+                    <button class="icon-btn" type="button" aria-label="Notifications">
+                        <i class="fa-regular fa-bell"></i>
+                    </button>
+
+                    <div class="avatar" aria-label="User menu">
+                        <i class="fa-regular fa-user"></i>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content">
+                <!-- Page header -->
+                <div class="page-head">
+                    <div>
+                        <h1 class="page-title">IPS User View</h1>
+                        <p class="page-subtitle">Monitoring overview of recent detections and system health</p>
+                    </div>
+
+                    <div class="head-actions">
+                        <button class="btn" type="button">
+                            <i class="fa-solid fa-download"></i>
+                            Export Logs
+                        </button>
+                    </div>
+                </div>
+                <!-- System Secure Banner -->
+                <section class="sys-banner">
+                    <div class="sys-content">
+                        <div class="sys-icon">
+                            <i class="fa-solid fa-shield"></i>
+                        </div>
+
+                        <div id="systemStatusContainer">
+                            <h2 id="systemStatusTitle">
+                                @(Model.IsSecure ? "System Secure ✔" : "System Not Secure ⚠")
+                            </h2>
+
+                            <p id="systemStatusMessage">
+                                @(Model.IsSecure
+                                                                ? "Your network is protected and monitored"
+                                                                : "No worries! We will deal with it")
+                            </p>
+                        </div>
+
+                        <div class="sys-badge">
+                            Last security check: <strong>Just now</strong>
+                        </div>
+                    </div>
+                </section>
+
+
+               
+
+                <!-- Table -->
+                <div class="threat-panel">
+                    <div class="threat-top">
+                        <span>Current Threat Level</span>
+                        <span class="lvl-tag">LOW</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width: 25%"></div>
+                    </div>
+                    <p class="threat-msg">Your network activity is normal. No significant threats detected.</p>
+                </div>
+
+            </div>
+
+            <button onclick="testAttack()" class="btn">
+                Simulate Attack
+            </button>
+
+
+            <!-- Footer -->
+            <footer class="footer">
+                <div>© 2023 Enterprise Cybersecurity Solutions Inc. All rights reserved.</div>
+                <div class="footer-links">
+                    <a href="#">Terms of Service</a>
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Support</a>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+  
+   
+       
+</body>
+ 
+

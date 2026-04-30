@@ -1,0 +1,188 @@
+﻿@using IPS_PROJECT.Models.ViewModels
+@model LoginViewModel 
+@{
+    ViewData["Title"] = "Login";
+    ViewData["PageCss"] = "style.css";
+}
+
+
+
+<div id="themeToggle">
+    <i class="fas fa-moon" id="themeIcon"></i>
+</div>
+
+<div class="login-container">
+    
+        <div class="card">
+
+            <form asp-action="Login" method="post">
+    <!-- Header -->
+    <div class="header">
+        <i class="fas fa-shield-alt logo-icon"></i>
+        <div class="logo-text">
+            <h2>AI-Based IPS</h2>
+            <p>Intrusion Prevention System</p>
+        </div>
+    </div>
+
+    <!-- Card -->
+    
+      
+
+        <h1>Welcome</h1>
+
+        <!-- Toggle -->
+        <div class="toggle-container">
+                <button type="button" class="toggle-btn active" id="adminToggle">Admin</button>
+                <button type="button" class="toggle-btn" id="userToggle">User</button>
+
+        </div>
+
+        <!-- Email -->
+        <div class="input-group">
+            <label>Email Address</label>
+            <div class="input-wrapper">
+                    <input asp-for ="Email"  placeholder="Enter your email"/>
+                <i class="fas fa-check-circle check-icon"></i>
+            </div>
+        </div>
+
+        <!-- Password -->
+        <div class="input-group">
+            <label>Password</label>
+            <div class="input-wrapper">
+                    <input type="password" asp-for="Password" id="passwordInput" placeholder="Enter your password">
+                    <i class="fas fa-eye toggle-password" id="togglePassword"></i>
+            </div>
+        </div>
+
+        <!-- Extra -->
+        <div class="extra-links">
+                   <a asp-area="Identity" asp-page="/Account/ForgotPassword">
+                    Forgot your password?
+                </a>
+        </div>
+
+            <!-- Admin Button -->
+            <input type="hidden" name="Role" value="Admin" id="roleInput" />
+
+            <button type="submit" class="main-btn admin-btn" id="adminBtn">
+                <span>Sign In as Admin</span>
+                <i class="fas fa-shield-halved"></i>
+            </button>
+
+            <!-- User Button -->
+            <button type="submit" class="main-btn user-btn" id="userBtn" style="display:none">
+                <span>Sign In as User</span>
+                <i class="fas fa-user"></i>
+            </button>
+
+
+        <!-- Sign Up -->
+        <p class="signup-text">
+            Don’t have an account?
+                <a asp-action="Register" asp-controller="Account">Sign up</a>
+
+        </p>
+
+           
+
+
+   
+            </form>
+        </div>
+        
+    </div>
+
+@section Scripts {
+
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const adminToggle = document.getElementById("adminToggle");
+            const userToggle = document.getElementById("userToggle");
+            const adminBtn = document.getElementById("adminBtn");
+            const userBtn = document.getElementById("userBtn");
+            const passwordInput = document.getElementById("passwordInput");
+            const togglePassword = document.getElementById("togglePassword");
+            const themeToggle = document.getElementById('themeToggle');
+            const themeIcon = document.getElementById('themeIcon');
+            const body = document.body;
+
+            // Toggle admin/user
+            adminToggle.onclick = () => {
+                adminToggle.classList.add("active");
+                userToggle.classList.remove("active");
+                adminBtn.style.display = "flex";
+                userBtn.style.display = "none";
+            };
+
+            userToggle.onclick = () => {
+
+                
+                userToggle.classList.add("active");
+                adminToggle.classList.remove("active");
+                userBtn.style.display = "flex";
+                adminBtn.style.display = "none";
+            };
+
+            // Show/hide password
+            togglePassword.onclick = () => {
+                const type = passwordInput.type === "password" ? "text" : "password";
+                passwordInput.type = type;
+                togglePassword.classList.toggle("fa-eye");
+                togglePassword.classList.toggle("fa-eye-slash");
+            };
+
+
+                    adminBtn.onclick = () => {
+            document.getElementById('roleInput').value = "Admin";
+        };
+
+        userBtn.onclick = () => {
+            document.getElementById('roleInput').value = "User";
+        };
+
+            // Login handler
+        /*   function handleLogin(e, role) {
+                e.preventDefault();
+                const email = document.querySelector("input[type='email']").value;
+                const password = passwordInput.value;
+
+                if(role === "admin"){
+                    if(email === "admin@ips.com" && password === "admin123"){
+                        localStorage.setItem("role", "admin");
+                        window.location.href = "admin-dashboard.html";
+                    } else {
+                        alert("Admin data incorrect");
+                    }
+                    return;
+                }
+
+                const users = JSON.parse(localStorage.getItem("users")) || [];
+                const user = users.find(u => u.email === email && u.password === password);
+
+                if(user){
+                    localStorage.setItem("role", "user");
+                    window.location.href = "user-dashboard.html";
+                } else {
+                    alert("User not found");
+                }
+            }
+
+         adminBtn.onclick = (e) => handleLogin(e, "admin");
+         userBtn.onclick = (e) => handleLogin(e, "user");*/
+
+            // Theme toggle
+            themeToggle.onclick = () => {
+                body.classList.toggle('dark-mode');
+                if (body.classList.contains('dark-mode')) {
+                    themeIcon.classList.replace('fa-moon', 'fa-sun');
+                    themeIcon.style.color = '#f59e0b';
+                } else {
+                    themeIcon.classList.replace('fa-sun', 'fa-moon');
+                    themeIcon.style.color = '#333';
+                }
+            };
+        });
+    </script> }

@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ips-app
+  namespace: ips-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ips-app
+  template:
+    metadata:
+      labels:
+        app: ips-app
+    spec:
+      initContainers:
+        # ينتظر MSSQL يكون جاهز قبل ما الـ app يقوم
+        - name: wait-for-mssql
+          image: busybox
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z mssql-service 1433; do
+                echo "Waiting for MSSQL...";
+                sleep 5;
+              done;
+              echo "MSSQL is ready!"
+      containers:
+        - name: ips-app
+          image: YOUR_DOCKERHUB_USERNAME/ips-app:latest   # ← غيّر الاسم ده
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ConnectionStrings__DefaultConnection
+              valueFrom:
+                secretKeyRef:
+                  name: mssql-secret
+                  key: connection-string
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ips-app-service
+  namespace: ips-app
+spec:
+  selector:
+    app: ips-app
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 8080
+      nodePort: 30500          # هتوصله من برا على  <minikube-ip>:30500
+                               # تقدر تغيره لأي رقم بين 30000-32767

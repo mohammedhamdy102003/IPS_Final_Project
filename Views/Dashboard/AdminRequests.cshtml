@@ -1,0 +1,32 @@
+﻿@model List<AdminRequest>
+
+<h2>Admin Requests</h2>
+
+<table class="table">
+    <tr>
+        <th>User</th>
+        <th>Email</th>
+        <th>Action</th>
+    </tr>
+
+    @foreach (var r in Model)
+    {
+        <tr>
+            <td>@r.User.FullName</td>
+            <td>@r.User.Email</td>
+
+            <td>
+                <a asp-action="ApproveAdmin"
+                   asp-controller="Account"
+                   asp-route-userId="@r.UserId"
+                   class="btn btn-success">Approve</a>
+
+                <a asp-action="RejectAdmin"
+                   asp-controller="Account"
+                   asp-route-userId="@r.UserId"
+                   class="btn btn-danger">Reject</a>
+            </td>
+
+        </tr>
+    }
+</table>

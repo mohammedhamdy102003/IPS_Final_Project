@@ -1,0 +1,15 @@
+﻿@{
+    ViewData["Title"] = "Verify Email";
+}
+
+<h2>Verify your email</h2>
+
+<p>
+    We've sent a confirmation link to your email.
+    <br />
+    Please check your inbox (and spam folder).
+</p>
+
+<form asp-action="ResendConfirmationEmail" method="post">
+    <button type="submit">Resend Confirmation Email</button>
+</form>
