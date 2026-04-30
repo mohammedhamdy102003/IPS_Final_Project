@@ -28,7 +28,7 @@ spec:
               echo "MSSQL is ready!"
       containers:
         - name: ips-app
-          image: YOUR_DOCKERHUB_USERNAME/ips-app:latest   # ← غيّر الاسم ده
+          image: mohammed102003/ips-app # ← غيّر الاسم ده
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
