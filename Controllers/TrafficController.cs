@@ -17,14 +17,16 @@ namespace IPS_PROJECT.Controllers
         private readonly AppDbContext _context;
         private readonly AiPredictionService _aiService;
         private readonly IHubContext<IpsHub> _hubContext;
-        private readonly IConfiguration _configuration; // أضفنا هذا السطر
+        private readonly IConfiguration _configuration;
+        private readonly BatchBuilderService _batchBuilder;
 
-        public TrafficController(AppDbContext context, AiPredictionService aiService, IHubContext<IpsHub> hubContext, IConfiguration configuration)
+        public TrafficController(AppDbContext context, AiPredictionService aiService, IHubContext<IpsHub> hubContext, IConfiguration configuration, BatchBuilderService batchBuilder)
         {
             _context = context;
             _aiService = aiService;
             _hubContext = hubContext;
-            _configuration = configuration; // أضفنا هذا السطر
+            _configuration = configuration;
+            _batchBuilder = batchBuilder;
         }
 
         [HttpPost("ProcessTraffic")]
@@ -35,6 +37,7 @@ namespace IPS_PROJECT.Controllers
                 if (incoming == null || incoming.data == null)
                     return BadRequest(new { error = "missing data" });
 
+                // تحويل البيانات لقاموس
                 var cleanedData = new Dictionary<string, double>();
                 foreach (var item in incoming.data)
                 {
@@ -49,69 +52,139 @@ namespace IPS_PROJECT.Controllers
                 if (!cleanedData.ContainsKey("protocol"))
                     cleanedData["protocol"] = (double)incoming.protocol;
 
+                // استدعاء الموديل
                 var rawResult = await _aiService.GetRawPredictionAsync(cleanedData);
+
                 using var doc = JsonDocument.Parse(rawResult);
                 var root = doc.RootElement;
 
-                if (root.TryGetProperty("error", out var errorProp))
+                // التعامل مع مخرجات الموديل (dense_v5)
+                var result = root.ValueKind == JsonValueKind.Array ? root[0] : root;
+
+                if (result.TryGetProperty("error", out var errorProp))
                     return BadRequest(new { error = errorProp.GetString() });
 
-                bool isAnomaly = root.GetProperty("anomaly_head").GetProperty("is_anomaly").GetBoolean();
+                bool isAnomaly = result.GetProperty("is_anomaly").GetBoolean();
+                string Model_Attack_Type = result.GetProperty("predicted_class").GetString() ?? "Unknown";
+                double confidenceValue = result.GetProperty("class_confidence").GetDouble();
+                double anomalyScore = result.GetProperty("anomaly_score").GetDouble();
 
-                string prediction = root.GetProperty("classification_head").GetProperty("predicted_class").GetString() ?? "Unknown";
-                double confidenceRaw = root.GetProperty("classification_head").GetProperty("confidence").GetDouble();
-                double confidenceValue = Math.Round(confidenceRaw * 100, 2);
 
+                string Attack_Type;
+                if (!isAnomaly)
+                {
+                    Attack_Type = "Benign";
+                }
+                else if (confidenceValue > 50)
+                {
+                    Attack_Type = Model_Attack_Type;
+                }
+                else
+                {
+                    Attack_Type = "Unknown Attack";
+                }
+
+                // حفظ الحدث
                 var trafficEvent = new EVENTS
                 {
                     SourceIp = incoming.source_ip ?? "Unknown",
                     DestinationIp = incoming.destination_ip ?? "Unknown",
-                    TrafficType = incoming.protocol == 6 ? "TCP" : "UDP",
-                    Prediction = prediction,
+                //    TrafficType =  "TCP"  ,
+                    Prediction = isAnomaly ? "Anomaly" : "Non Anomaly",
+                    AttackType = Attack_Type,
                     Confidence = confidenceValue,
                     Status = isAnomaly ? "Blocked" : "Allowed",
                     Timestamp = DateTime.Now
                 };
 
                 _context.Events.Add(trafficEvent);
+                await _context.SaveChangesAsync();
 
-                if (trafficEvent.Status == "Blocked")
+                /* if (trafficEvent.Status == "Blocked")
+                 {
+                     var notification = new AlertNotification
+                     {
+                         AttackType = Attack_Type,
+                         SourceIp = trafficEvent.SourceIp,
+                         DestinationIp = trafficEvent.DestinationIp,
+                         Prediction = isAnomaly ? "Anomaly" : "Non Anomaly",
+                         Confidence = confidenceValue,
+                       //  Protocol = trafficEvent.TrafficType,
+                         Timestamp = trafficEvent.Timestamp,
+                         IsRead = false
+                     };
+                     _context.AlertNotifications.Add(notification);
+                     await _context.SaveChangesAsync();
+                     await _hubContext.Clients.All.SendAsync("ReceiveAttackAlert", notification);
+                 }
+                 else
+                 {
+                     /* await _context.SaveChangesAsync();
+                      await _hubContext.Clients.All.SendAsync("ReceiveRefresh");*/
+                /*  await _context.SaveChangesAsync();
+              }*/
+                var totalEvents = await _context.Events.CountAsync();
+                /* if (totalEvents % 20 == 0)
+                 {
+                     await _hubContext.Clients.All.SendAsync("ReceiveRefresh");
+                 }*/
+                if (totalEvents % 20 == 0)
                 {
-                    var notification = new AlertNotification
+                    var last20Events = await _context.Events
+                            .OrderByDescending(x => x.Id)
+                            .Take(20)
+                            .ToListAsync();
+
+                  /*  last20Events = last20Events
+                        .OrderBy(x => x.Id)
+                        .ToList(); */
+
+                    var batch = _batchBuilder.BuildBatch(last20Events);
+
+
+                    if (batch.Status == "Blocked")
                     {
-                        AttackType = prediction,
-                        SourceIp = trafficEvent.SourceIp,
-                        DestinationIp = trafficEvent.DestinationIp,
-                        Prediction = prediction,
-                        Confidence = confidenceValue,
-                        Protocol = trafficEvent.TrafficType,
-                        Timestamp = trafficEvent.Timestamp,
-                        IsRead = false
-                    };
-                    _context.AlertNotifications.Add(notification);
-                    await _context.SaveChangesAsync();
-                    await _hubContext.Clients.All.SendAsync("ReceiveAttackAlert", notification);
-                }
-                else
-                {
-                    await _context.SaveChangesAsync();
-                    await _hubContext.Clients.All.SendAsync("ReceiveRefresh");
+                        var notification = new AlertNotification
+                        {
+                            AttackType = batch.AttackType,
+                            SourceIp = batch.SourceIp,
+                            DestinationIp = batch.DestinationIp,
+                            Prediction =  batch.Prediction,
+                            Confidence =  batch.Confidence,
+                            //  Protocol = trafficEvent.TrafficType,
+                            Timestamp = batch.Timestamp,
+                            IsRead = false
+                        };
+                        _context.AlertNotifications.Add(notification);
+                        await _context.SaveChangesAsync();
+                        await _hubContext.Clients.All.SendAsync("ReceiveAttackAlert", notification);
+                    }
+                    else
+                    {
+                        /* await _context.SaveChangesAsync();
+                         await _hubContext.Clients.All.SendAsync("ReceiveRefresh");*/
+                        await _context.SaveChangesAsync();
+                    }
+
+                    await _hubContext.Clients.All.SendAsync(
+                        "ReceiveNewBatch",
+                        batch
+                    );
+
                 }
 
-                return Ok(new
-                {
-                    source_ip = trafficEvent.SourceIp,
-                    destination_ip = trafficEvent.DestinationIp,
-                    attack_type = prediction,
-                    confidence = confidenceValue, // تم تعديل confString إلى confidenceValue
-                    status = trafficEvent.Status
-                });
+                return Ok(new { source_ip = trafficEvent.SourceIp, destination_ip = trafficEvent.DestinationIp, attack_type = Attack_Type, confidence = confidenceValue, status = trafficEvent.Status });
             }
             catch (Exception ex)
             {
                 return BadRequest(new { error = ex.Message });
             }
         }
+
+
+
+
+        // --- باقي الدوال (Export, GetDetails, MarkAsRead, Delete, ClearAll) تبقى كما هي دون تغيير ---
 
         [HttpGet("ExportTraffic")]
         public async Task<IActionResult> ExportTraffic()
@@ -120,11 +193,11 @@ namespace IPS_PROJECT.Controllers
             {
                 var events = await _context.Events.OrderByDescending(e => e.Timestamp).ToListAsync();
                 var builder = new StringBuilder();
-                builder.AppendLine("Source IP,Destination IP,Protocol,Prediction,Confidence,Status,Timestamp");
+                builder.AppendLine("Source IP,Destination IP,Prediction, Attack_Type,Confidence,Status,Timestamp");
 
                 foreach (var e in events)
                 {
-                    builder.AppendLine($"{e.SourceIp},{e.DestinationIp},{e.TrafficType},{e.Prediction},{e.Confidence}%,{e.Status},{e.Timestamp}");
+                    builder.AppendLine($"{e.SourceIp},{e.DestinationIp},{e.Prediction}  ,{e.AttackType},{e.Confidence}%,{e.Status},{e.Timestamp}");
                 }
 
                 return File(Encoding.UTF8.GetBytes(builder.ToString()), "text/csv", $"Traffic_Report_{DateTime.Now:yyyyMMdd}.csv");
@@ -185,5 +258,6 @@ namespace IPS_PROJECT.Controllers
             await _context.SaveChangesAsync();
             return Ok();
         }
+
     }
 }

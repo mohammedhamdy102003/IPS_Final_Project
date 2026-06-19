@@ -1,0 +1,13 @@
+.vs/
+bin/
+obj/
+
+# Terraform (state files contain secrets - never commit)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+
+# Editor swap files
+*.swp

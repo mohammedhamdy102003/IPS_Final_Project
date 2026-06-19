@@ -336,4 +336,112 @@ nav {
 }
 
 .card-red {
-    bor
+    border-bottom: 3px solid #ff4b2b !important;
+}
+
+/* ============================
+   Hover Effects - Buttons
+   ============================ */
+
+.cta {
+    display: inline-block;
+    color: white;
+    text-decoration: none;
+    position: relative;
+    overflow: hidden;
+}
+
+.cta:hover {
+    transform: scale(1.07) !important;
+    box-shadow: 0 0 28px rgba(0,255,255,0.7), 0 0 60px rgba(0,100,255,0.35) !important;
+}
+
+.signin {
+    transition: color 0.3s, border-color 0.3s, box-shadow 0.3s, transform 0.3s !important;
+}
+
+.signin:hover {
+    color: #00ffff !important;
+    border-color: #00ffff !important;
+    box-shadow: 0 0 14px rgba(0,255,255,0.45), inset 0 0 10px rgba(0,255,255,0.08) !important;
+    transform: translateY(-2px) !important;
+}
+
+.register {
+    transition: box-shadow 0.3s, transform 0.3s, filter 0.3s !important;
+}
+
+.register:hover {
+    box-shadow: 0 0 20px rgba(0,150,255,0.6), 0 0 40px rgba(0,255,255,0.25) !important;
+    transform: translateY(-2px) !important;
+    filter: brightness(1.2) !important;
+}
+
+.card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease !important;
+    cursor: default;
+}
+
+.card:hover {
+    transform: translateY(-8px) !important;
+}
+
+.card-blue:hover  { box-shadow: 0 8px 30px rgba(0,210,255,0.35) !important; }
+.card-purple:hover{ box-shadow: 0 8px 30px rgba(157,80,187,0.35) !important; }
+.card-red:hover   { box-shadow: 0 8px 30px rgba(255,75,43,0.35) !important; }
+
+/* ============================
+   Footer
+   ============================ */
+footer {
+    background: #020612;
+    border-top: 1px solid rgba(0,255,255,0.1);
+    padding: 28px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.footer-logo {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 16px;
+    color: cyan;
+    letter-spacing: 2px;
+}
+
+.footer-copy {
+    font-size: 13px;
+    color: rgba(255,255,255,0.45);
+    text-align: center;
+    flex: 1;
+}
+
+.footer-copy span {
+    color: rgba(0,255,255,0.6);
+}
+
+.footer-links {
+    display: flex;
+    gap: 20px;
+    list-style: none;
+}
+
+.footer-links a {
+    color: rgba(255,255,255,0.4);
+    text-decoration: none;
+    font-size: 13px;
+    transition: color 0.3s;
+}
+
+.footer-links a:hover { color: cyan; }
+
+@media(max-width:900px) {
+    footer {
+        flex-direction: column;
+        text-align: center;
+        padding: 24px 20px;
+    }
+    .footer-links { justify-content: center; }
+}

@@ -1,5 +1,4 @@
-﻿ 
-using IPS_PROJECT.Data;
+﻿using IPS_PROJECT.Data;
 using IPS_PROJECT.Models;
 using IPS_PROJECT.Models.ViewModels;
 using Microsoft.AspNetCore.Authorization;
@@ -12,19 +11,19 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.WebUtilities;
 using System.Text;
 using System.Text.Encodings.Web;
- 
+
 
 namespace IPS_PROJECT.Controllers
 {
-     
-    public class Account : Controller
+
+    public class AccountController : Controller
     {
         private readonly SignInManager<USERS> _signInManager;
         private readonly UserManager<USERS> _userManager;
         private readonly IEmailSender _emailSender;
         private readonly AppDbContext _context;
 
-        public Account(UserManager<USERS> userManager, SignInManager<USERS> signInManager, IEmailSender emailSender, AppDbContext context)
+        public AccountController(UserManager<USERS> userManager, SignInManager<USERS> signInManager, IEmailSender emailSender, AppDbContext context)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -32,18 +31,12 @@ namespace IPS_PROJECT.Controllers
             _context = context;
         }
 
-        // GET: /Account/Login
-
         [HttpGet]
         [AllowAnonymous]
         public IActionResult Login()
         {
             return View();
         }
-
-
-
-        // POST: /Account/Login
 
         [HttpPost]
         [AllowAnonymous]
@@ -77,7 +70,6 @@ namespace IPS_PROJECT.Controllers
                 return View(model);
             }
 
-            // تحقق من الدور
             if (!await _userManager.IsInRoleAsync(user, model.Role))
             {
                 ModelState.AddModelError("", $"User does not have {model.Role} role");
@@ -104,22 +96,12 @@ namespace IPS_PROJECT.Controllers
             return View(model);
         }
 
-
-
-
-        
-       //////////////////////////////// GET: /Account/Register  //////////////////////////////////////////////
-       
         [HttpGet]
         [AllowAnonymous]
         public IActionResult Register()
         {
             return View();
         }
-
-
-        //////////////////////////////  POST: /Account/Register   /////////////////////////////////////////////////
-        
 
         [HttpPost]
         [AllowAnonymous]
@@ -142,14 +124,13 @@ namespace IPS_PROJECT.Controllers
                 RequestedRole = model.RegisterType
             };
 
+            var result = await _userManager.CreateAsync(user, model.Password);
 
-             var result = await _userManager.CreateAsync(user, model.Password);
-
-                      if (result.Succeeded)
-                               {
-                                            await SendConfirmationEmail(user);
-                                            return RedirectToAction("VerifyEmail");
-                                }
+            if (result.Succeeded)
+            {
+                await SendConfirmationEmail(user);
+                return RedirectToAction("VerifyEmail");
+            }
 
             foreach (var error in result.Errors)
             {
@@ -159,13 +140,8 @@ namespace IPS_PROJECT.Controllers
             return View(model);
         }
 
-
-
-        ////////////////////////////////  Send_Confirmation_Email  //////////////////////////////////////////////
-        
         private async Task SendConfirmationEmail(USERS user)
         {
-           
             var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
 
@@ -176,15 +152,10 @@ namespace IPS_PROJECT.Controllers
                 protocol: Request.Scheme);
 
             if (string.IsNullOrEmpty(user.Email))
-            {
-                throw new InvalidOperationException("User email is missing, cannot send confirmation email.");
-            }
+                throw new InvalidOperationException("User email is missing.");
 
             if (callbackUrl == null)
-            {
-                throw new InvalidOperationException("Callback URL is null, cannot send email.");
-            }
-
+                throw new InvalidOperationException("Callback URL is null.");
 
             await _emailSender.SendEmailAsync(
                 user.Email,
@@ -192,10 +163,6 @@ namespace IPS_PROJECT.Controllers
                 $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
         }
 
-
-        //////////////////////////////// Confirm_Email  //////////////////////////////////////////////
-
-        // صفحة استقبال التفعيل (مسموحة للجميع)
         [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> ConfirmEmail(string userId, string code)
@@ -213,24 +180,20 @@ namespace IPS_PROJECT.Controllers
             if (result.Succeeded)
             {
                 var adminExists = await (
-                from u in _context.Users
-                join ur in _context.UserRoles on u.Id equals ur.UserId
-                join r in _context.Roles on ur.RoleId equals r.Id
-                where r.Name == "Admin"
-                select u
+                    from u in _context.Users
+                    join ur in _context.UserRoles on u.Id equals ur.UserId
+                    join r in _context.Roles on ur.RoleId equals r.Id
+                    where r.Name == "Admin"
+                    select u
                 ).AnyAsync();
 
                 if (!adminExists && user.RequestedRole == "Admin")
                 {
-                    // أول Admin في النظام
                     await _userManager.AddToRoleAsync(user, "Admin");
                 }
-
                 else if (user.RequestedRole == "Admin")
                 {
-                    // إرسال طلب للأدمن
-                    await _userManager.AddToRoleAsync(user, "User");
-
+                    // لا نضيفه كـ User ولا كـ Admin - يفضل pending لحد ما يتوافق عليه
                     var request = new AdminRequest
                     {
                         UserId = user.Id,
@@ -261,17 +224,12 @@ namespace IPS_PROJECT.Controllers
             return View("Error");
         }
 
-
-        //////////////////////////////// AdminRequestPending  //////////////////////////////////////////////
         [HttpGet]
         [AllowAnonymous]
         public IActionResult AdminRequestPending()
         {
             return View();
         }
-
-
-        //////////////////////////////// Verify_Email  //////////////////////////////////////////////
 
         [HttpGet]
         [AllowAnonymous]
@@ -280,21 +238,14 @@ namespace IPS_PROJECT.Controllers
             return View();
         }
 
-
-        //////////////////////////////// Resend_Confirmation_Email  ////////////////////////////////////////////// 
-
         [HttpPost]
         [Authorize]
         public async Task<IActionResult> ResendConfirmationEmail()
         {
-            // جلب اليوزر الحالي
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
                 return RedirectToAction("Login");
 
-            
-           
-            // ارسال ايميل التفعيل
             await SendConfirmationEmail(user);
 
             TempData["StatusMessage"] = "Verification email resent. Please check your inbox.";
@@ -302,12 +253,8 @@ namespace IPS_PROJECT.Controllers
             return RedirectToAction("VerifyEmail");
         }
 
-        //ADMIN REQUEST
-
-        //////////////////////////////// SendAdminRequestEmail  //////////////////////////////////////////////
         private async Task SendAdminRequestEmail(USERS user)
         {
-            // 1️⃣ الحصول على أول Admin حسب تاريخ التسجيل
             var firstAdmin = await (
                 from u in _context.Users
                 join ur in _context.UserRoles on u.Id equals ur.UserId
@@ -320,7 +267,6 @@ namespace IPS_PROJECT.Controllers
             if (firstAdmin == null)
                 return;
 
-            // 2️⃣ إنشاء Token آمن
             var token = await _userManager.GenerateUserTokenAsync(
                 user,
                 "Default",
@@ -331,12 +277,11 @@ namespace IPS_PROJECT.Controllers
                 Encoding.UTF8.GetBytes(token)
             );
 
-            // 3️⃣ إنشاء رابط الموافقة
             var approveLink = Url.Action(
-                 "ApproveAdmin",
-                 "Account",
-                 new { userId = user.Id, token = token },
-                 protocol: Request.Scheme);
+                "ApproveAdmin",
+                "Account",
+                new { userId = user.Id, token = token },
+                protocol: Request.Scheme);
 
             var rejectLink = Url.Action(
                 "RejectAdmin",
@@ -344,26 +289,14 @@ namespace IPS_PROJECT.Controllers
                 new { userId = user.Id },
                 protocol: Request.Scheme);
 
-            // 4️⃣ محتوى الإيميل
             var message = $@"
-                   Hello {firstAdmin.FullName},<br><br>
+                Hello {firstAdmin.FullName},<br><br>
+                User <b>{user.FullName}</b> requested Admin access.<br><br>
+                <a href='{approveLink}' style='padding:10px;background:green;color:white;text-decoration:none'>Approve</a>
+                &nbsp;
+                <a href='{rejectLink}' style='padding:10px;background:red;color:white;text-decoration:none'>Reject</a>
+            ";
 
-                   User <b>{user.FullName}</b> requested Admin access.<br><br>
-
-                   <a href='{approveLink}' 
-                     style='padding:10px;background:green;color:white;text-decoration:none'>
-                     Approve
-                     </a>
-
-                     &nbsp;
-
-                     <a href='{rejectLink}' 
-                     style='padding:10px;background:red;color:white;text-decoration:none'>
-                     Reject
-                     </a>
-                     ";
-
-            // 5️⃣ إرسال الإيميل
             await _emailSender.SendEmailAsync(
                 firstAdmin.Email,
                 "Admin Access Request",
@@ -371,12 +304,7 @@ namespace IPS_PROJECT.Controllers
             );
         }
 
-
-
-
-
-        //////////////////////////////// Approve_Admin  //////////////////////////////////////////////
-
+        // Approve من الـ Email (بيطلب token للأمان)
         [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> ApproveAdmin(string userId, string token)
@@ -385,7 +313,6 @@ namespace IPS_PROJECT.Controllers
                 return BadRequest();
 
             var user = await _userManager.FindByIdAsync(userId);
-
             if (user == null)
                 return NotFound();
 
@@ -401,11 +328,8 @@ namespace IPS_PROJECT.Controllers
             if (!isValid)
                 return Unauthorized();
 
-            // إضافة رول Admin مرة واحدة فقط
             if (!await _userManager.IsInRoleAsync(user, "Admin"))
-            {
                 await _userManager.AddToRoleAsync(user, "Admin");
-            }
 
             var request = await _context.AdminRequests
                 .FirstOrDefaultAsync(r => r.UserId == userId && r.Status == "Pending");
@@ -416,29 +340,64 @@ namespace IPS_PROJECT.Controllers
                 await _context.SaveChangesAsync();
             }
 
-            var loginUrl = Url.Action("Login", "Account", null, Request.Scheme);
-
-            // ✉️ Email مباشرة عبر service
-            var subject = "Admin Request Approved";
-            var message = $@"
-        Hello {user.FullName},<br><br>
-
-        Your request for Admin access has been <b style='color:green'>approved</b>.<br><br>
-
-        You can now log in as Admin from the login page.<br><br>
-
-        <a href='{loginUrl}'>Go to Login</a>
-    ";
-
-            await _emailSender.SendEmailAsync(user.Email, subject, message);
+            try
+            {
+                var loginUrl = Url.Action("Login", "Account", null, Request.Scheme);
+                await _emailSender.SendEmailAsync(user.Email!, "Admin Request Approved", $@"
+                    Hello {user.FullName},<br><br>
+                    Your request for Admin access has been <b style='color:green'>approved</b>.<br><br>
+                    <a href='{loginUrl}'>Go to Login</a>
+                ");
+            }
+            catch { }
 
             return Content("Admin access granted successfully.");
         }
 
+        // ✅ Approve من الـ Dashboard (من غير token)
+        [HttpGet]
+        [AllowAnonymous]
+        public async Task<IActionResult> ApproveAdminDashboard(string userId)
+        {
+            if (userId == null)
+                return BadRequest();
 
-        //////////////////////////////// Reject_Admin  ////////////////////////////////////////////// 
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return NotFound();
 
+            // شيل أي role قديم وضيفه كـ Admin
+            var currentRoles = await _userManager.GetRolesAsync(user);
+            if (currentRoles.Any())
+                await _userManager.RemoveFromRolesAsync(user, currentRoles);
 
+            await _userManager.AddToRoleAsync(user, "Admin");
+
+            // امسح الـ pending request من الجدول (مش بس نغير status - لازم يختفي من القائمة)
+            var request = await _context.AdminRequests
+                .FirstOrDefaultAsync(r => r.UserId == userId && r.Status == "Pending");
+
+            if (request != null)
+            {
+                _context.AdminRequests.Remove(request);
+                await _context.SaveChangesAsync();
+            }
+
+            try
+            {
+                var loginUrl = Url.Action("Login", "Account", null, Request.Scheme);
+                await _emailSender.SendEmailAsync(user.Email!, "Admin Request Approved", $@"
+                    Hello {user.FullName},<br><br>
+                    Your request for Admin access has been <b style='color:green'>approved</b>.<br><br>
+                    You can now log in as an Admin.
+                ");
+            }
+            catch { }
+
+            return RedirectToAction("Index", "Users");
+        }
+
+        // Reject من الـ Email
         [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> RejectAdmin(string userId)
@@ -447,7 +406,6 @@ namespace IPS_PROJECT.Controllers
                 return BadRequest();
 
             var user = await _userManager.FindByIdAsync(userId);
-
             if (user == null)
                 return NotFound();
 
@@ -460,23 +418,60 @@ namespace IPS_PROJECT.Controllers
                 await _context.SaveChangesAsync();
             }
 
-            var loginUrl = Url.Action("Login", "Account", null, Request.Scheme);
-            // ✉️ Email مباشرة عبر service
-            var subject = "Admin Request Rejected";
-            var message = $@"
-        Hello {user.FullName},<br><br>
-
-        Your request for Admin access has been <b style='color:red'>rejected</b>.<br><br>
-
-        You can continue using the system as a normal user.
-
-        <a href='{loginUrl}'>Go to Login</a>
-    ";
-
-            await _emailSender.SendEmailAsync(user.Email, subject, message);
+            try
+            {
+                var loginUrl = Url.Action("Login", "Account", null, Request.Scheme);
+                await _emailSender.SendEmailAsync(user.Email!, "Admin Request Rejected", $@"
+                    Hello {user.FullName},<br><br>
+                    Your request for Admin access has been <b style='color:red'>rejected</b>.<br><br>
+                    <a href='{loginUrl}'>Go to Login</a>
+                ");
+            }
+            catch { }
 
             return Content("Admin request rejected.");
         }
 
+        // ✅ Reject من الـ Dashboard
+        [HttpGet]
+        [AllowAnonymous]
+        public async Task<IActionResult> RejectAdminDashboard(string userId)
+        {
+            if (userId == null)
+                return BadRequest();
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return NotFound();
+
+            var userEmail = user.Email;
+            var userName = user.FullName;
+
+            // امسح الـ pending request أولاً
+            var request = await _context.AdminRequests
+                .FirstOrDefaultAsync(r => r.UserId == userId && r.Status == "Pending");
+
+            if (request != null)
+            {
+                _context.AdminRequests.Remove(request);
+                await _context.SaveChangesAsync();
+            }
+
+            // امسح الـ user خالص (ماعندوش role ولا مكانه في السيستم)
+            await _userManager.DeleteAsync(user);
+
+            try
+            {
+                var loginUrl = Url.Action("Login", "Account", null, Request.Scheme);
+                await _emailSender.SendEmailAsync(userEmail!, "Admin Request Rejected", $@"
+                    Hello {userName},<br><br>
+                    Your request for Admin access has been <b style='color:red'>rejected</b>.<br><br>
+                    If you'd like to join as a regular user, you can register again.
+                ");
+            }
+            catch { }
+
+            return RedirectToAction("Index", "Users");
+        }
     }
 }

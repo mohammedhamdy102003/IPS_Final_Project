@@ -15,41 +15,62 @@ namespace IPS_PROJECT.Services
             _configuration = configuration;
         }
 
+        // Calls the "data": [ ... ] style API (dense_v5_API.py)
         public async Task<string> GetRawPredictionAsync(object features)
         {
-           
             var endpoint = _configuration["AiSettings:Endpoint"] ?? "http://127.0.0.1:8000/predict";
             var apiKey = _configuration["AiSettings:ApiKey"] ?? "";
 
+            var payload = new { data = new[] { features } };
+
+            return await SendRequestAsync(endpoint, apiKey, payload);
+        }
+
+        // Calls the "features": { ... } style API (two_head_model API)
+        public async Task<string> GetFeaturePredictionAsync(object features)
+        {
+            var endpoint = _configuration["AiSettings:Endpoint"] ?? "http://127.0.0.1:8000/predict";
+            var apiKey = _configuration["AiSettings:ApiKey"] ?? "";
+
+            var payload = new { features = features };
+
+            return await SendRequestAsync(endpoint, apiKey, payload);
+        }
+
+        private async Task<string> SendRequestAsync(string endpoint, string apiKey, object payload)
+        {
             try
             {
-                
-                var payload = new { features = features };
-
                 var jsonPayload = JsonSerializer.Serialize(payload);
                 var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
-                
+                var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+                {
+                    Content = content
+                };
+
                 if (!string.IsNullOrEmpty(apiKey))
                 {
-                    _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
                 }
 
-                var response = await _httpClient.PostAsync(endpoint, content);
+                var response = await _httpClient.SendAsync(request);
 
                 if (!response.IsSuccessStatusCode)
                 {
                     var errorDetails = await response.Content.ReadAsStringAsync();
-                    return $"{{\"error\": \"API Error: {response.StatusCode}\", \"details\": \"{errorDetails.Replace("\"", "'")}\"}}";
+                    return JsonSerializer.Serialize(new
+                    {
+                        error = $"API Error: {response.StatusCode}",
+                        details = errorDetails
+                    });
                 }
 
-                
                 return await response.Content.ReadAsStringAsync();
             }
             catch (Exception ex)
             {
-             
-                return $"{{\"error\": \"Connection failed: {ex.Message}\"}}";
+                return JsonSerializer.Serialize(new { error = $"Connection failed: {ex.Message}" });
             }
         }
     }

@@ -1,15 +1,12 @@
-@model IPS_PROJECT.ViewModels.DashboardViewModel
+﻿@model IPS_PROJECT.ViewModels.DashboardViewModel
 @{
     ViewData["Title"] = "IPS Admin Console - AI-Based IPS";
     ViewData["PageCss"] = "dashboard.css";
 }
 
-<!-- For outo Refreshing -->
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="~/js/site.js" asp-append-version="true"></script>
-
 
 <body>
     <div class="app">
@@ -23,7 +20,12 @@
             </div>
 
             <nav class="nav" aria-label="Sidebar">
-                <a class="active" href="#" aria-current="page"><i class="fa-solid fa-table-cells"></i>Overview</a>
+                <a class="active" href="/Dashboard" aria-current="page">
+                    <i class="fa-solid fa-table-cells"></i>Overview
+                </a>
+                <a href="/Users">
+                    <i class="fa-solid fa-users"></i>Users
+                </a>
             </nav>
 
             <div class="sidebar-footer">SYSTEM v3.6.1</div>
@@ -43,7 +45,6 @@
                         <button class="active" id="adminViewBtn" role="tab" aria-selected="true" type="button">Admin View</button>
                         <button id="userViewBtn" role="tab" aria-selected="false" type="button">User View</button>
                     </div>
-
 
                     <div class="notification-wrapper" style="position: relative; margin-right: 20px;">
                         <button class="noti-btn" id="notiBtn" style="background: var(--panel-2); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 10px; cursor: pointer; position: relative;">
@@ -66,7 +67,7 @@
                                 <button onclick="apiClearAll()" style="background:none; border:none; color:var(--blue); cursor:pointer; font-size: 12px;">Clear All</button>
                             </div>
                             <div class="noti-body" id="notiItems" style="max-height: 400px; overflow-y: auto;">
-                                @foreach (var alert in Model.AlertNotifications)
+                                @foreach (var alert in Model.AlertNotifications ?? new List<AlertNotification>())
                                  {
                                 <div class="noti-item" style="padding: 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
                                     <div>
@@ -109,7 +110,7 @@
 
                     <div class="head-actions" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
                         <div class="export-group" style="display: flex; align-items: center; background: var(--panel-2); padding: 6px 14px; border-radius: var(--radius); border: 1px solid var(--border); transition: all 0.3s ease;">
-
+                            <!-- Export Logs Filter-->
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <i class="fa-solid fa-calendar-alt" style="color: var(--blue); font-size: 14px;"></i>
                                 <select id="reportRange" onchange="toggleCustomDates()"
@@ -130,7 +131,7 @@
                             <button class="btn-export-action" type="button" onclick="downloadFilteredReport()" 
                                    style="background: none; border: none; color: var(--blue); cursor: pointer; border-left: 1px solid var(--border); margin-left: 12px; padding-left: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
                               <i class="fa-solid fa-file-export"></i>
-                               <span>Export</span>
+                               <span>Export Logs</span>
                             </button>
                         </div>
 
@@ -142,7 +143,8 @@
                 </div>
 
                 <!-- Stats -->
-                <section class="stats" aria-label="Summary stats">
+               <!--
+                    <section class="stats" aria-label="Summary stats">
                     <div class="card stat">
                         <div>
                             <div class="label">Total Events</div>
@@ -169,38 +171,185 @@
                         </div>
                         <div class="icon green" aria-hidden="true"><i class="fa-solid fa-circle-check"></i></div>
                     </div>
-
-
                 </section>
 
+               -->
+                <section class="stats" aria-label="Summary stats">
+
+                    <div class="card stat">
+                        <div>
+                            <div class="label">Total Events</div>
+
+                            <div class="value" data-stat="totalEvents">
+                                @Model.TotalEvents
+                            </div>
+
+                            <div class="hint good">
+                                <i class="fa-solid fa-arrow-trend-up"></i>
+                                +12.5% vs last hour
+                            </div>
+                        </div>
+
+                        <div class="icon blue" aria-hidden="true">
+                            <i class="fa-solid fa-chart-line"></i>
+                        </div>
+                    </div>
+
+                    <div class="card stat">
+                        <div>
+                            <div class="label">Threats Blocked</div>
+
+                            <div class="value"
+                                 data-stat="threatsBlocked"
+                                 style="color: rgba(239,68,68,0.95);">
+                                @Model.ThreatsBlocked
+                            </div>
+
+                            <div class="hint bad">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                5 critical threats
+                            </div>
+                        </div>
+
+                        <div class="icon pink" aria-hidden="true">
+                            <i class="fa-solid fa-shield-halved"></i>
+                        </div>
+                    </div>
+
+                    <div class="card stat">
+                        <div>
+                            <div class="label">Benign Traffic</div>
+
+                            <div class="value"
+                                 data-stat="benignTraffic"
+                                 style="color: rgba(16,185,129,0.95);">
+                                @Model.BenignTraffic
+                            </div>
+
+                            <div class="hint">
+                                <i class="fa-regular fa-circle-check"></i>
+                                No latency issues
+                            </div>
+                        </div>
+
+                        <div class="icon green" aria-hidden="true">
+                            <i class="fa-solid fa-circle-check"></i>
+                        </div>
+                    </div>
+
+                </section>
+                <!-- 🔥 Attack Distribution + Model Intelligence Section (جديد تماماً) -->
+                <section style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+
+                    <!-- Attack Distribution Chart -->
+                    <div class="card" style="padding: 20px; display: flex; flex-direction: column;">
+                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
+                            <div style="width:32px;height:32px;border-radius:8px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.25);display:flex;align-items:center;justify-content:center;color:#c4b5fd;">
+                                <i class="fa-solid fa-chart-pie"></i>
+                            </div>
+                            <div style="font-size:15px;font-weight:700;color:rgba(255,255,255,0.9);">Attack Distribution</div>
+                        </div>
+
+                        @if (Model.AttackDistribution != null && Model.AttackDistribution.Any())
+                        {
+                            <div style="flex:1;display:flex;align-items:center;justify-content:center;min-height:200px;">
+                                <canvas id="attackChart" style="max-width:200px !important; max-height:200px !important;"></canvas>
+                            </div>
+                            <div id="attackLegend" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;"></div>
+                        }
+                        else
+                        {
+                            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:rgba(255,255,255,0.3);padding:40px;">
+                                <i class="fa-solid fa-chart-line" style="font-size:40px; margin-bottom:10px;"></i>
+                                <p>No attack data available</p>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Model Intelligence -->
+                    <div class="card" style="padding:20px;display:flex;flex-direction:column;">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                            <div style="width:32px;height:32px;border-radius:8px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.25);display:flex;align-items:center;justify-content:center;color:#93c5fd;">
+                                <i class="fa-solid fa-circle-info"></i>
+                            </div>
+                            <div style="font-size:15px;font-weight:700;color:rgba(255,255,255,0.9);">Model Intelligence</div>
+                        </div>
+
+                        @if (Model.ModelIntelligence != null)
+                        {
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
+                                <div>
+                                    <div style="color:rgba(255,255,255,0.35);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;">STATUS</div>
+                                    <div style="font-weight:650;color:rgba(255,255,255,0.86);">
+                                        <span style="display:inline-flex;align-items:center;gap:8px;color:rgba(16,185,129,0.95);">
+                                            <span style="width:8px;height:8px;border-radius:999px;background:rgba(16,185,129,0.95);box-shadow:0 0 0 4px rgba(16,185,129,0.15);"></span>
+                                            @Model.ModelIntelligence.Status
+                                        </span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style="color:rgba(255,255,255,0.35);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;">VERSION</div>
+                                    <div style="font-weight:650;color:rgba(255,255,255,0.86);">@Model.ModelIntelligence.Version</div>
+                                </div>
+                                <div>
+                                    <div style="color:rgba(255,255,255,0.35);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;">LAST TRAINING</div>
+                                    <div style="font-weight:650;color:rgba(255,255,255,0.86);">@Model.ModelIntelligence.LastTraining.ToString("MMM dd, yyyy")</div>
+                                </div>
+                                <div>
+                                    <div style="color:rgba(255,255,255,0.35);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;">PARAMETERS</div>
+                                    <div style="font-weight:650;color:rgba(255,255,255,0.86);">@Model.ModelIntelligence.Parameters</div>
+                                </div>
+                            </div>
+
+                            <div style="padding:14px;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.15);border-radius:10px;display:flex;gap:10px;align-items:flex-start;">
+                                <i class="fa-solid fa-lightbulb" style="color:#c4b5fd; margin-top:2px; flex-shrink:0;"></i>
+                                <div style="font-size:12px;color:rgba(255,255,255,0.8);line-height:1.35;">
+                                    @Model.ModelIntelligence.AlertMessage
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </section>
 
                 <!-- Table -->
                 <section class="card table-card" aria-label="Recent detection events">
-                    <div class="table-head">
-
+                    <div class="table-head" style="flex-direction: column; align-items: flex-start; gap: 14px;">
                         <div class="table-title">Recent Detection Events</div>
 
-                        <div class="filters-container">
+                        <form id="searchForm" method="get" asp-action="Search" asp-controller="Dashboard"
+                              style="display: flex; align-items: center; gap: 12px; width: 100%;">
 
-                            <!-- Search -->
-                            <form method="get" asp-action="Search" asp-controller="Dashboard" class="search-box">
-                                <i class="fa-solid fa-magnifying-glass"></i>
-                                <input name="Term" type="text" placeholder="Search by IP, Attack Type, or Status..." />
-                            </form>
+                            <div style="display: flex; align-items: center; gap: 10px; flex: 1;
+                                        background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+                                        border-radius: 12px; padding: 10px 14px;">
+                                <i class="fa-solid fa-magnifying-glass" style="color: rgba(255,255,255,0.45);"></i>
+                                <input name="Term" type="text"
+                                       placeholder="Search by IP, Attack Type, or Status..."
+                                       style="flex: 1; background: transparent; border: none; outline: none;
+                                              color: rgba(255,255,255,0.86); font-size: 13px;" />
+                            </div>
 
-                            <!-- Time Filter -->
-                            <form method="get" asp-action="Search" asp-controller="Dashboard" class="time-filter">
-                                <select name="TimeRange" onchange="this.form.submit()">
-                                    <option value="">All Time</option>
-                                    <option value="24h">Last 24 Hours</option>
-                                    <option value="7d">Last 7 Days</option>
-                                    <option value="30d">Last 30 Days</option>
-                                </select>
-                            </form>
+                            <select name="TimeRange" onchange="this.form.submit()"
+                                    style="padding: 10px 14px; border-radius: 12px;
+                                           border: 1px solid rgba(255,255,255,0.06);
+                                           background: rgba(255,255,255,0.04);
+                                           color: rgba(255,255,255,0.86); font-size: 13px;
+                                           cursor: pointer; outline: none; min-width: 160px;">
+                                <option value="">All Time</option>
+                                <option value="24h">Last 24 Hours</option>
+                                <option value="7d">Last 7 Days</option>
+                                <option value="30d">Last 30 Days</option>
+                            </select>
 
-                        </div>
+                            <button type="submit"
+                                    style="padding: 10px 22px; border-radius: 12px;
+                                           background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1);
+                                           color: rgba(255,255,255,0.86); font-weight: 700; font-size: 14px;
+                                           cursor: pointer; white-space: nowrap;">
+                                Search
+                            </button>
+                        </form>
                     </div>
-                   
 
                     <div style="overflow:auto;">
                         <table>
@@ -209,40 +358,72 @@
                                     <th>TIMESTAMP</th>
                                     <th>SOURCE IP</th>
                                     <th>DESTINATION IP</th>
-                                    <th>ATTACK TYPE</th>
                                     <th>PREDICTION</th>
+                                    <th>ATTACK TYPE</th>
                                     <th>CONFIDENCE</th>
                                     <th>STATUS</th>
                                 </tr>
                             </thead>
                             <tbody id="eventsBody">
+@foreach (var e in Model.RecentEvents)
+{
+    
+        var attackType = e.AttackType ?? "";
+        var status = e.Status ?? "";
 
-                                @foreach (var e in Model.RecentEvents)
-                                {
-                                <tr>
-                                    <td class="mono dim">@e.Timestamp</td>
-                                    <td class="mono ip"><a href="#" data-ip="192.168.1.104">@e.SourceIp</a></td>
-                                    <td class="mono dim">@e.DestinationIp</td>
-                                    <td>@e.TrafficType</td>
-                                    <td><span class="badge mal">@e.Prediction</span></td>
-                                    <td>
-                                        <div class="conf">
-                                            <div class="bar"><span style="width:98%"></span></div>
-                                            <div class="pct">@e.Confidence</div>
-                                        </div>
-                                    </td>
-                                    <td><span class="status-pill blocked"><i class="fa-solid fa-ban"></i>@e.Status</span></td>
-                                </tr>
-                                }
+        var badgeClass = attackType.Equals("Benign", StringComparison.OrdinalIgnoreCase)
+            ? "ben"
+            : "mal";
 
+        var statusClass = status.Equals("Allowed", StringComparison.OrdinalIgnoreCase)
+            ? "allowed"
+            : "blocked";
 
+        var iconClass = status.Equals("Allowed", StringComparison.OrdinalIgnoreCase)
+            ? "fa-check"
+            : "fa-ban";
+    
 
-                            </tbody>
-                        </table>
-                    </div>
+    <tr>
+        <td class="mono dim">@e.Timestamp</td>
+
+        <td class="mono ip">
+            <a href="#" data-ip="@e.SourceIp">@e.SourceIp</a>
+        </td>
+
+        <td class="mono dim">@e.DestinationIp</td>
+
+        <td>@e.Prediction</td>
+
+        <td>
+            <span class="badge @badgeClass">
+                @e.AttackType
+            </span>
+        </td>
+
+                                        <td>
+                                            <div class="pct">@($"{e.Confidence:F0}%")</div>
+                                            <div class="bar">
+                                                <span style="width:@(e.Confidence)%"></span>
+                                            </div>
+                                        </td>
+
+        <td>
+            <span class="status-pill @statusClass">
+                <i class="fa-solid @iconClass"></i>
+                @e.Status
+            </span>
+        </td>
+    </tr>
+}
+ 
+</tbody>
+</table>
+</div>
+
 
                     <div class="table-foot">
-                        <div>Showing 3 of 1,247 events</div>
+                        <div>Showing @Model.RecentEvents.Count() of @Model.TotalEvents events</div>
                         <div class="pager" aria-label="Pagination">
                             <span class="link">Previous</span>
                             <span class="page active">1</span>
@@ -253,14 +434,6 @@
                     </div>
                 </section>
             </div>
-            <div>
-                <p class="signup-text">
-        
-                    <a asp-action="AdminRequests" asp-controller="DashboardController">Admin Requests</a>
-
-                </p>
-            </div>
-
 
             <!-- Footer -->
             <footer class="footer">
@@ -274,5 +447,196 @@
         </main>
     </div>
 
- 
+    <!-- 🔥 Script للـ Chart (تحت body) -->
+    <!-- 🔥 Script للـ Chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+
+        let attackChart = null;
+
+        // البيانات الأولية القادمة من الـ ViewModel
+        const attackDistributionData =
+        @Html.Raw(Json.Serialize(Model.AttackDistribution));
+
+        function renderAttackChart(data) {
+
+        const ctx = document.getElementById("attackChart");
+
+        if (!ctx || !data || data.length === 0)
+        return;
+
+        // لو فيه Chart قديم امسحه
+        if (attackChart) {
+        attackChart.destroy();
+        }
+
+        attackChart = new Chart(ctx, {
+        type: "doughnut",
+
+        data: {
+        labels: data.map(a => a.type),
+
+        datasets: [{
+        data: data.map(a => a.percentage),
+        backgroundColor: data.map(a => a.color),
+        borderWidth: 0,
+        spacing: 4,
+        hoverOffset: 10
+        }]
+        },
+
+        options: {
+        responsive: true,
+        maintainAspectRatio: true,
+
+        plugins: {
+        legend: {
+        display: false
+        }
+        },
+
+        cutout: '70%',
+        rotation: -90
+        }
+        });
+
+        renderLegend(data);
+        }
+
+        function renderLegend(data) {
+
+        const legend =
+        document.getElementById("attackLegend");
+
+        if (!legend)
+        return;
+
+        legend.innerHTML = "";
+
+        data.forEach(a => {
+
+        legend.innerHTML += `
+        <div style="
+        display:flex;
+        align-items:center;
+        gap:6px;
+        font-size:12px;
+        color:rgba(255,255,255,0.62);
+        ">
+        <span style="
+        width:8px;
+        height:8px;
+        border-radius:50%;
+        background:${a.color};
+        flex-shrink:0;
+        "></span>
+
+        <strong>${a.type}</strong>
+        — ${a.percentage}%
+        </div>
+        `;
+        });
+        }
+
+        // 🔥 تحديث الـ Chart من السيرفر
+        async function refreshAttackChart() {
+
+        try {
+
+        const response =
+        await fetch('/DashBoard/GetAttackDistributionData');
+
+        if (!response.ok)
+        return;
+
+        const data = await response.json();
+
+        renderAttackChart(data);
+
+        }
+        catch (err) {
+
+        console.error(
+        "Failed to refresh attack chart",
+        err
+        );
+        }
+        }
+
+        // أول تحميل للصفحة
+        if (
+        attackDistributionData &&
+        attackDistributionData.length > 0
+        ) {
+        renderAttackChart(
+        attackDistributionData
+        );
+        }
+
+    </script>
+
+    <!--
+
+    -->
+   <!-- <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> -->
+  <!--
+       <script>
+        // البيانات من الـ ViewModel
+        const attackDistributionData = @Html.Raw(Json.Serialize(Model.AttackDistribution));
+
+        function renderAttackChart(data) {
+            const ctx = document.getElementById("attackChart");
+            if (!ctx || !data || data.length === 0) return;
+
+            new Chart(ctx, {
+                type: "doughnut",
+                data: {
+                    labels: data.map(a => a.type),
+                    datasets: [{
+                        data: data.map(a => a.percentage),
+                        backgroundColor: data.map(a => a.color),
+                        borderWidth: 0,
+                        spacing: 4,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    cutout: '70%',
+                    rotation: -90
+                }
+            });
+
+            renderLegend(data);
+        }
+
+        function renderLegend(data) {
+            const legend = document.querySelector("#attackLegend");
+            if (!legend) return;
+
+            legend.innerHTML = "";
+            data.forEach(a => {
+                legend.innerHTML += `
+                    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,0.62);">
+                        <span style="width:8px;height:8px;border-radius:50%;background:${a.color};flex-shrink:0;"></span>
+                        <strong>${a.type}</strong> — ${a.percentage}%
+                    </div>
+                `;
+            });
+        }
+
+        // تشغيل الـ Chart عند تحميل الصفحة
+        if (attackDistributionData && attackDistributionData.length > 0) {
+            renderAttackChart(attackDistributionData);
+        }
+    </script>
+
+  -->  
+
+
 </body>

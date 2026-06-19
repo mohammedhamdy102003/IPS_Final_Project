@@ -55,13 +55,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Copy K8s Manifests to VM
+      - name: Copy K8s + Monitoring Manifests to VM
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VM_IP }}
           username: ${{ secrets.VM_USER }}
           password: ${{ secrets.VM_SSH_KEY }}
-          source: "k8s/"
+          source: "k8s/,monitoring/"
           target: "~/ips-k8s/"
 
       - name: Deploy to Kubernetes via SSH
@@ -73,7 +73,12 @@ jobs:
           script: |
             minikube status | grep -q "Running" || minikube start
             kubectl apply -f ~/ips-k8s/k8s/
-            kubectl rollout restart deployment/ips-app
-            kubectl rollout status deployment/ips-app --timeout=120s
+            kubectl apply -f ~/ips-k8s/monitoring/
+            kubectl rollout restart deployment/ips-app -n ips-app
+            kubectl rollout status deployment/ips-app -n ips-app --timeout=120s
+            kubectl rollout status deployment/prometheus -n monitoring --timeout=120s
+            kubectl rollout status deployment/grafana -n monitoring --timeout=120s
             docker image prune -f
-            echo "✅ App is live at: http://$(minikube ip):30080" # اتأكد من رقم الـ NodePort بتاعك
+            echo "✅ App is live at:        http://$(minikube ip):30500"
+            echo "✅ Prometheus is live at: http://$(minikube ip):30090"
+            echo "✅ Grafana is live at:    http://$(minikube ip):30300"

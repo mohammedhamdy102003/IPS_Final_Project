@@ -8,7 +8,7 @@ namespace IPS_PROJECT.Models
         public DateTime Timestamp { get; set; } = DateTime.Now;
         public string SourceIp { get; set; } = string.Empty;
         public string DestinationIp { get; set; } = string.Empty;
-        public string TrafficType { get; set; } = string.Empty;
+        public string AttackType { get; set; } = string.Empty;
         public string Prediction { get; set; } = string.Empty;
         public double Confidence { get; set; }
         public string Status { get; set; } = string.Empty;

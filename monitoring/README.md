@@ -1,4 +1,8 @@
 # Monitoring Stack — Prometheus + Grafana
+
+> ✅ **الخطوات الثلاثة تحت (package + Program.cs + annotation) متعمولة بالفعل في الكود.**
+> الجزء ده موجود للتوثيق بس، مش محتاج تعمله تاني. اللي محتاجه فعلاً هو "تطبيق الـ Monitoring" تحت.
+
 ## ترتيب الفايلات
 
 ```
@@ -12,7 +16,7 @@ monitoring/
 
 ---
 
-## ⚠️ خطوة مهمة — لازم تعملها في الـ .NET App
+## ⚠️ خطوة مهمة — لازم تعملها في الـ .NET App (✅ متعمولة بالفعل)
 
 Prometheus محتاج endpoint اسمه `/metrics` في الـ app بتاعك.
 
@@ -59,6 +63,9 @@ template:
 ---
 
 ## تطبيق الـ Monitoring
+
+> ✅ من دلوقتي الخطوة دي بتتعمل **أوتوماتيك** مع كل تشغيل للـ pipeline (`.github/workflows/main.yml`).
+> الأوامر تحت لو حبيت تطبقها يدوي أو للتأكد محليًا.
 
 ```bash
 # طبّق كل الـ monitoring manifests

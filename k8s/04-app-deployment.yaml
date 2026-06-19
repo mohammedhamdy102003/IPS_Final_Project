@@ -12,6 +12,10 @@ spec:
     metadata:
       labels:
         app: ips-app
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8080"
     spec:
       initContainers:
         # ينتظر MSSQL يكون جاهز قبل ما الـ app يقوم

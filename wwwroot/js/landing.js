@@ -24,7 +24,7 @@ let counter = setInterval(() => {
 }, 10);
 
 // =============================
-// 3️⃣ Network Background - 
+// 3️⃣ Network Background
 // =============================
 const canvas = document.getElementById("network");
 const ctx = canvas.getContext("2d");
@@ -75,12 +75,8 @@ function animateNetwork() {
 animateNetwork();
 
 // =============================
-// 4️⃣ THREE JS GLOBE 
+// 4️⃣ THREE JS GLOBE
 // =============================
-// =============================
-// 4️⃣ THREE JS GLOBE (FIXED)
-// =============================
-
 const globeDiv = document.getElementById("globe");
 
 let scene, camera, renderer, earth, glow;
@@ -108,8 +104,8 @@ if (globeDiv) {
     // Geometry
     const geometry = new THREE.SphereGeometry(2, 64, 64);
 
-    // Texture
-    const texture = new THREE.TextureLoader().load("earth_dark2.jpg");
+    // Texture من الصورة الأصلية في wwwroot/images/
+    const texture = new THREE.TextureLoader().load("/images/earth_dark2.jpg");
 
     // Material
     const material = new THREE.MeshStandardMaterial({
@@ -151,7 +147,6 @@ if (globeDiv) {
 
     animate();
 }
-
 
 // =============================
 // 5️⃣ Resize Fix

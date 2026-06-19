@@ -125,6 +125,10 @@ namespace IPS_PROJECT.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AttackType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<double>("Confidence")
                         .HasColumnType("float");
 
