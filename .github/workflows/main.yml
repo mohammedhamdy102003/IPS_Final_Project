@@ -71,6 +71,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Debug Secrets
+        run: |
+          echo "USER=${{ secrets.VM_USER }}"
+          echo "IP=${{ secrets.VM_IP }}"
+
+      - name: Test SSH Connection
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_IP }}
+          username: ${{ secrets.VM_USER }}
+          password: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            whoami
+            hostname
+            pwd
+
       - name: Copy K8s + Monitoring Manifests to VM
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -103,6 +119,4 @@ jobs:
 
             sudo k3s crictl rmi --prune 2>/dev/null || true
 
-            echo "✅ App is live at:        http://${{ secrets.VM_IP }}:30500"
-            echo "✅ Prometheus is live at: http://${{ secrets.VM_IP }}:30090"
-            echo "✅ Grafana is live at:    http://${{ secrets.VM_IP }}:30300"
+            echo "App deployed successfully"
