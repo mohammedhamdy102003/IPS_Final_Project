@@ -53,6 +53,14 @@ builder.Services.AddTransient<IEmailSender, EmailSender>();
 
 var app = builder.Build();
 
+// تطبيق الـ EF Core migrations تلقائيًا وقت الإقلاع — مفيد لما الداتابيز
+// تكون جديدة وفاضية (زي RDS instance جديد) عشان السكيما تتظبط من غير خطوة يدوية.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
+
 // 4️⃣ HTTP request pipeline
 if (!app.Environment.IsDevelopment())
 {

@@ -1,7 +1,7 @@
 # IPS Project — DevOps & Monitoring Guide
 
 نظام Full DevOps لمشروع الـ AI-Based Intrusion Prevention System:
-Docker → Kubernetes (Minikube) → GitHub Actions CI/CD → Prometheus + Grafana Monitoring.
+Docker → Kubernetes (k3s) → GitHub Actions CI/CD → Prometheus + Grafana Monitoring → AWS RDS.
 
 ---
 
@@ -11,24 +11,43 @@ Docker → Kubernetes (Minikube) → GitHub Actions CI/CD → Prometheus + Grafa
 GitHub Actions (workflow_dispatch)
    │
    ├─ test          → dotnet build
-   ├─ build-and-scan→ docker build + Trivy scan + push لـ Docker Hub
-   └─ deploy        → SSH للماشين → kubectl apply (k8s/ + monitoring/)
+   ├─ build-and-scan→ docker build (app + ai-model) + Trivy scan + push لـ Docker Hub
+   └─ deploy        → SSH للـ EC2 → kubectl apply (k8s/ + monitoring/)
 
-الماشين (Minikube):
+EC2 (t3.small, Public Subnet + IGW, k3s):
    namespace ips-app
-     ├─ mssql        (Deployment + PVC + ClusterIP service)
-     └─ ips-app      (Deployment + NodePort :30500)  ← التطبيق نفسه
+     ├─ ips-app      (Deployment + NodePort :30500)  ← التطبيق نفسه
+     └─ ai-model     (Deployment + ClusterIP :8000)  ← FastAPI + TensorFlow model
    namespace monitoring
      ├─ prometheus   (Deployment + NodePort :30090)
      └─ grafana      (Deployment + NodePort :30300)
+
+AWS RDS (SQL Server Express, db.t3.micro, Private — مش متاحة للإنترنت):
+   IPS_project database
+
+Windows Agent (جهاز منفصل):
+   agent/windows_traffic_agent.py → بيلتقط الـ network traffic الحقيقي ويبعته
+   لـ /api/Traffic/ProcessTraffic على الـ EC2
 ```
 
-التطبيق نفسه بيعرض `/metrics` (عن طريق `prometheus-net.AspNetCore`)، وProteus بيجمعها
-تلقائيًا بفضل الـ annotations على الـ pod (`prometheus.io/scrape: "true"`).
+التطبيق بيعرض `/metrics` (عن طريق `prometheus-net.AspNetCore`)، وProteus بيجمعها
+تلقائيًا بفضل annotations على الـ pod (`prometheus.io/scrape: "true"`).
+الـ AI model API بيتكلم معاه التطبيق داخليًا بس عن طريق `ai-model-service` (مش متاح للبرة).
 
 ---
 
-## 2) تجهيز الماشين الجديدة (مرة واحدة بس)
+## 2) AWS — الترتيب اللي محتاجه
+
+1. **EC2 t3.small** في **Public Subnet** متوصلة بـ Internet Gateway، مع Public IP مفعّل.
+   Security Group مفتوحة على: `22` (SSH)، `30500` (App)، `30090` (Prometheus)، `30300` (Grafana).
+2. **RDS** (SQL Server Express, db.t3.micro, Free tier, **Public access = No**) في نفس الـ VPC،
+   مع Security Group بتاعتها بتسمح بدخول من Security Group بتاع الـ EC2 على بورت `1433` بس.
+
+تفاصيل خطوة بخطوة في `k8s/README.md`.
+
+---
+
+## 3) تجهيز الماشين (مرة واحدة، بعد ما الـ EC2 تكون شغالة)
 
 ```bash
 git clone <repo-url>
@@ -37,53 +56,58 @@ chmod +x setup-vm.sh
 ./setup-vm.sh
 ```
 
-السكربت بيركّب Docker + kubectl + Minikube، بيشغل minikube، وبيفعّل SSH.
-في الآخر هيطبعلك الـ IP والمعلومات اللي محتاجها للخطوة الجاية.
+السكربت بيركّب **k3s** (مش Minikube — أخف بكتير في الـ RAM ومحتاجش Docker على الماشين خالص)،
+وبيفعّل SSH.
 
 ---
 
-## 3) إعداد GitHub Secrets
+## 4) إعداد GitHub Secrets
 
 من `Settings → Secrets and variables → Actions` ضيف:
 
-| Secret            | القيمة                                              |
-|--------------------|------------------------------------------------------|
-| `DOCKER_USERNAME`  | يوزر Docker Hub بتاعك                                |
-| `DOCKER_PASSWORD`  | Access Token من Docker Hub (مش الباسورد العادي)      |
-| `VM_IP`            | IP الماشين اللي هتعمله بالسكربت فوق                  |
-| `VM_USER`          | اليوزر بتاع الماشين دي                                |
-| `VM_SSH_KEY`       | باسورد اليوزر ده (الـ workflow بيستخدمه كـ SSH password) |
+| Secret            | القيمة                                                     |
+|--------------------|-------------------------------------------------------------|
+| `DOCKER_USERNAME`  | يوزر Docker Hub بتاعك                                       |
+| `DOCKER_PASSWORD`  | Access Token من Docker Hub (مش الباسورد العادي)             |
+| `VM_IP`            | الـ Public IP بتاع الـ EC2                                  |
+| `VM_USER`          | اليوزر بتاع الماشين دي                                      |
+| `VM_SSH_KEY`       | باسورد اليوزر ده (الـ workflow بيستخدمه كـ SSH password)     |
 
-⚠️ تأكد إن `k8s/04-app-deployment.yaml` فيه اسم Docker Hub image بتاعك صح
-(حاليًا `mohammed102003/ips-app` — غيّره لو يوزرك مختلف).
+⚠️ تأكد إن `k8s/04-app-deployment.yaml` و`k8s/05-ai-model-deployment.yaml`
+فيهم اسم Docker Hub image بتاعك صح (حاليًا `mohammed102003/...`).
 
----
-
-## 4) تشغيل الديبلوي
-
-من تاب **Actions** في الريبو → اختار workflow **"Professional Manual CI/CD"** → **Run workflow**.
-الـ pipeline هيعمل build وscan وpush، وبعدين يديبلوي التطبيق + المونيتورينج مع بعض أوتوماتيك.
+⚠️ قبل أول تشغيل، لازم تملأ `k8s/01-secret.yaml` بمعلومات الـ RDS الحقيقية بتاعتك
+(Endpoint, username, password) — التفاصيل في `k8s/README.md`.
 
 ---
 
-## 5) اللينكات بعد الديبلوي
+## 5) تشغيل الديبلوي
+
+من تاب **Actions** → اختار **"Professional Manual CI/CD"** → **Run workflow**.
+الـ pipeline هيعمل build + scan + push لصورتين (app + ai-model)، وبعدين يديبلوي كل حاجة
+(app + ai-model + monitoring) أوتوماتيك مع بعض.
+
+---
+
+## 6) اللينكات بعد الديبلوي
 
 ```
-http://<VM_IP أو minikube ip>:30500   → التطبيق نفسه
-http://<VM_IP أو minikube ip>:30090   → Prometheus
-http://<VM_IP أو minikube ip>:30300   → Grafana (admin / admin123)
+http://<EC2_PUBLIC_IP>:30500   → التطبيق نفسه
+http://<EC2_PUBLIC_IP>:30090   → Prometheus
+http://<EC2_PUBLIC_IP>:30300   → Grafana (admin / admin123)
 ```
-
-لو الماشين بره الشبكة المحلية بتاعتك، استخدم `VM_IP` العام. لو جوه نفس الشبكة بس، استخدم
-`minikube ip` وانت متصل على نفس الـ VM أو نفس الشبكة.
-
-تفاصيل أكتر عن كل جزء موجودة في `k8s/README.md` و`monitoring/README.md`.
 
 ---
 
-## 6) ملاحظات أمان مهمة (للمستقبل، مش لازم تعملها دلوقتي)
+## 7) تشغيل الإيجنت (محاكاة/التقاط traffic حقيقي)
+
+شوف `agent/README.md`. السكربت بيشتغل على جهاز Windows منفصل، ولازم تحط فيه
+الـ Public IP بتاع الـ EC2 بعد ما تاخده.
+
+---
+
+## 8) ملاحظات أمان مهمة (للمستقبل، مش لازم تعملها دلوقتي)
 
 - `appsettings.json` فيه إيميل وباسورد Gmail App Password مكتوبين صريح وبيترفعوا عالريبو العام.
-  الأفضل تتنقل لـ k8s Secret + environment variable زي ما اتعمل بالظبط مع باسورد الداتابيز.
-- لو غيرت الباسورد الموجود حاليًا (`coxh smzp isiw zxhc`) — هو فعليًا App Password شغال على
-  Gmail، يفضل تعمله revoke من حساب الـ Gmail بعد التسليم.
+  الأفضل تتنقل لـ k8s Secret + environment variable زي ما اتعمل بالظبط مع باسورد RDS.
+- بعد التسليم، روح RDS واعمل Delete للـ instance عشان متترفعش عليك فلوس بعد ما الـ Free tier تخلص.

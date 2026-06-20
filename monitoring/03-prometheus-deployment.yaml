@@ -8,7 +8,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 5Gi
+      storage: 1Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -35,17 +35,17 @@ spec:
           args:
             - '--config.file=/etc/prometheus/prometheus.yml'
             - '--storage.tsdb.path=/prometheus'
-            - '--storage.tsdb.retention.time=15d'   # احتفظ بـ 15 يوم من الـ metrics
+            - '--storage.tsdb.retention.time=2d'    # كفاية للديمو، بتقلل استهلاك الـ RAM
             - '--web.enable-lifecycle'               # تقدر تعمل reload بدون restart
           ports:
             - containerPort: 9090
           resources:
             requests:
-              memory: "256Mi"
-              cpu: "250m"
+              memory: "128Mi"
+              cpu: "100m"
             limits:
-              memory: "512Mi"
-              cpu: "500m"
+              memory: "256Mi"
+              cpu: "300m"
           volumeMounts:
             - name: config
               mountPath: /etc/prometheus
@@ -71,4 +71,4 @@ spec:
   ports:
     - port: 9090
       targetPort: 9090
-      nodePort: 30090       # http://<minikube-ip>:30090
+      nodePort: 30090       # http://<VM_IP>:30090
