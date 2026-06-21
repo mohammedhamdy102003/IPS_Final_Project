@@ -5,12 +5,12 @@ import time
 # إعدادات الاتصال والشبكة
 # ⚠️ غيّر القيمة دي بالـ Public IP بتاع الـ EC2 instance بعد ما تعمله.
 #    (localhost كان شغال بس وقت إن السيرفر شغال على نفس جهازك في التطوير المحلي)
-API_URL = "http://44.192.99.122:30500/api/Traffic/ProcessTraffic"
-INTERFACE = r"\Device\NPF_{1E55FFAD-B09B-41FB-99DD-FA7982A9767F}"
+API_URL = "http://100.48.192.105:30500/api/Traffic/ProcessTraffic"
+INTERFACE = r"\Device\NPF_{B04BEC53-E7CB-4320-86E7-489017156448}"
 DEVICE_ID = "Esraa-PC"
 
 def main():
-    print("[+] Windows Agent Started and Listening... 🛡️")
+    print("[+] Windows Agent Started and Listening... ")
 
     streamer = NFStreamer(
         source=INTERFACE,
