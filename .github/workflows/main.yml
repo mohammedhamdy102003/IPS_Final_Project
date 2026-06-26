@@ -64,9 +64,6 @@ jobs:
         run: |
           docker tag ips-app:test ${{ secrets.DOCKER_USERNAME }}/ips-app:latest
           docker push ${{ secrets.DOCKER_USERNAME }}/ips-app:latest
-
-      - name: Push AI Model Image
-        run: |
           docker tag ips-ai-model:test ${{ secrets.DOCKER_USERNAME }}/ips-ai-model:latest
           docker push ${{ secrets.DOCKER_USERNAME }}/ips-ai-model:latest
           docker tag ips-waf:test ${{ secrets.DOCKER_USERNAME }}/ips-waf:latest
@@ -75,26 +72,8 @@ jobs:
   deploy:
     needs: build-and-scan
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Debug Secrets
-        run: |
-          echo "USER=${{ secrets.VM_USER }}"
-          echo "IP=${{ secrets.VM_IP }}"
-
-      - name: Test SSH Connection
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VM_IP }}
-          username: ${{ secrets.VM_USER }}
-          password: ${{ secrets.VM_SSH_KEY }}
-          script: |
-            whoami
-            hostname
-            pwd
-
       - name: Copy K8s + Monitoring Manifests to VM
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -121,5 +100,3 @@ jobs:
             kubectl rollout status deployment/ips-app -n ips-app --timeout=120s
             kubectl rollout status deployment/ai-model -n ips-app --timeout=180s
             sudo k3s crictl rmi --prune 2>/dev/null || true
-
-            echo "App deployed successfully"
