@@ -67,9 +67,7 @@ metadata:
 spec:
   selector:
     app: ips-app
-  type: NodePort
+  type: ClusterIP    # WAF (06-waf-deployment.yaml) هو اللي بيعرّض port 30500 للعالم دلوقتي
   ports:
-    - port: 80
+    - port: 8080
       targetPort: 8080
-      nodePort: 30500          # هتوصله من برا على  <VM_IP>:30500
-                               # تقدر تغيره لأي رقم بين 30000-32767

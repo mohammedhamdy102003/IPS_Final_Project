@@ -39,7 +39,7 @@ spec:
           readinessProbe:
             tcpSocket:
               port: 1433
-            initialDelaySeconds: 30   # MSSQL بياخد وقت عشان يقوم
+            initialDelaySeconds: 30   
             periodSeconds: 10
           livenessProbe:
             tcpSocket:
@@ -62,4 +62,4 @@ spec:
   ports:
     - port: 1433
       targetPort: 1433
-  type: ClusterIP              # الـ DB مش محتاج يتعرض للبرا
+  type: ClusterIP              

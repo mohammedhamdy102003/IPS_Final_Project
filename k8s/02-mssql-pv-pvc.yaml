@@ -8,7 +8,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   hostPath:
-    path: /mnt/data/mssql        # Minikube يحفظها جوه الـ VM
+    path: /mnt/data/mssql       
   persistentVolumeReclaimPolicy: Retain
 ---
 apiVersion: v1

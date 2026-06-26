@@ -1,0 +1,71 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# WAF (ModSecurity + Nginx) — sits in front of the web app
+# External traffic  →  WAF (NodePort 30500)  →  ips-app-service (ClusterIP)
+#
+# After adding the WAF:
+#   - ips-app Service changes from NodePort to ClusterIP (see 04-app-deployment.yaml)
+#   - All public traffic enters through the WAF only
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: waf
+  namespace: ips-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: waf
+  template:
+    metadata:
+      labels:
+        app: waf
+      annotations:
+        prometheus.io/scrape: "false"
+    spec:
+      containers:
+        - name: waf
+          image: mohammed102003/ips-waf:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: BACKEND
+              value: "http://ips-app-service:8080"
+            - name: MODSEC_RULE_ENGINE
+              value: "DetectionOnly"   # غيّرها لـ "On" لو عايز تبلوك فعلياً
+            - name: NGINX_ALWAYS_TLS_REDIRECT
+              value: "off"
+            - name: PORT
+              value: "8080"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "300m"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: waf-service
+  namespace: ips-app
+spec:
+  selector:
+    app: waf
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30500    # هنا الـ public access — WAF هو اللي بيرد على 30500 دلوقتي
