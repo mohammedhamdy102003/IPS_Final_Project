@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: waf-nginx-conf
+  namespace: ips-app
+data:
+  nginx.conf: |
+    server {
+        listen 8080 ssl;
+        server_name _;
+        ssl_certificate /etc/nginx/ssl/server.crt;
+        ssl_certificate_key /etc/nginx/ssl/server.key;
+
+        location / {
+            proxy_pass http://ips-app-service:8080;
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-Proto https;
+        }
+    }
