@@ -97,10 +97,6 @@ namespace IPS_PROJECT.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Protocol")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("SourceIp")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -150,10 +146,6 @@ namespace IPS_PROJECT.Migrations
 
                     b.Property<DateTime>("Timestamp")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("TrafficType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
