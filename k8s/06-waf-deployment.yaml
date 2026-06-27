@@ -1,10 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# WAF (ModSecurity + Nginx) — sits in front of the web app
-# External traffic  →  WAF (NodePort 30500)  →  ips-app-service (ClusterIP)
-#
-# After adding the WAF:
-#   - ips-app Service changes from NodePort to ClusterIP (see 04-app-deployment.yaml)
-#   - All public traffic enters through the WAF only
+# WAF (ModSecurity + Nginx) — Optimized for SSL Termination
 # ─────────────────────────────────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: Deployment
@@ -27,16 +22,16 @@ spec:
         - name: waf
           image: mohammed102003/ips-waf:latest
           ports:
-            - containerPort: 8080
+            - containerPort: 443
           env:
             - name: BACKEND
               value: "http://ips-app-service:8080"
             - name: MODSEC_RULE_ENGINE
-              value: "DetectionOnly"   # غيّرها لـ "On" لو عايز تبلوك فعلياً
+              value: "DetectionOnly"
             - name: NGINX_ALWAYS_TLS_REDIRECT
               value: "off"
             - name: PORT
-              value: "8080"
+              value: "443"
           resources:
             requests:
               memory: "128Mi"
@@ -47,14 +42,22 @@ spec:
           readinessProbe:
             httpGet:
               path: /healthz
-              port: 8080
+              port: 443
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 8080
+              port: 443
             periodSeconds: 20
+          volumeMounts:
+            - name: ssl-certs
+              mountPath: /etc/nginx/ssl
+              readOnly: true
+      volumes:
+        - name: ssl-certs
+          secret:
+            secretName: waf-ssl-certs
 ---
 apiVersion: v1
 kind: Service
@@ -66,6 +69,6 @@ spec:
     app: waf
   type: NodePort
   ports:
-    - port: 8080
-      targetPort: 8080
-      nodePort: 30500    # هنا الـ public access — WAF هو اللي بيرد على 30500 دلوقتي
+    - port: 443
+      targetPort: 443
+      nodePort: 30500
