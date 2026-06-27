@@ -1,67 +1,62 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# WAF (ModSecurity + Nginx) — sits in front of the web app
-# External traffic  →  WAF (NodePort 30500)  →  ips-app-service (ClusterIP)
-# ─────────────────────────────────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: waf
+  name: ai-model
   namespace: ips-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: waf
+      app: ai-model
   template:
     metadata:
       labels:
-        app: waf
+        app: ai-model
       annotations:
-        prometheus.io/scrape: "false"
+        prometheus.io/scrape: "false"   # السيرفس دي مش بتعرض /metrics بصيغة Prometheus
     spec:
       containers:
-        - name: waf
-          image: mohammed102003/ips-waf:latest
+        - name: ai-model
+          image: mohammed102003/ips-ai-model # ← غيّر الاسم ده لو يوزرك مختلف
+          imagePullPolicy: Always
           ports:
-            - containerPort: 8080
-          env:
-            - name: BACKEND
-              value: "http://ips-app-service:8080"
-            - name: MODSEC_RULE_ENGINE
-              value: "DetectionOnly"
-            - name: NGINX_ALWAYS_TLS_REDIRECT
-              value: "off"
-            - name: PORT
-              value: "8080"
+            - containerPort: 8000
           resources:
             requests:
-              memory: "128Mi"
-              cpu: "100m"
+              memory: "512Mi"
+              cpu: "250m"
             limits:
-              memory: "256Mi"
-              cpu: "300m"
+              memory: "1280Mi"
+              cpu: "1000m"
+          # TensorFlow بياخد وقت في أول تحميل (import + load_model) فالـ probes
+          # بتدي مساحة وقت كافية قبل ما تحكم على الـ pod إنه فاشل.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 30   # لحد 160 ثانية مهلة للإقلاع
           readinessProbe:
             httpGet:
-              path: /waf-health
-              port: 8080
-            initialDelaySeconds: 5
+              path: /health
+              port: 8000
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /waf-health
-              port: 8080
+              path: /health
+              port: 8000
             periodSeconds: 20
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: waf-service
+  name: ai-model-service
   namespace: ips-app
 spec:
   selector:
-    app: waf
-  type: NodePort
+    app: ai-model
+  type: ClusterIP        # داخلي بس، التطبيق هو اللي بينادي عليه، مش محتاج يتعرض للبرا
   ports:
-    - port: 8080
-      targetPort: 8080
-      nodePort: 30500
+    - port: 8000
+      targetPort: 8000
