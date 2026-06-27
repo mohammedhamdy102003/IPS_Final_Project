@@ -37,7 +37,6 @@ namespace IPS_PROJECT.Controllers
                 if (incoming == null || incoming.data == null)
                     return BadRequest(new { error = "missing data" });
 
-                // تحويل البيانات لقاموس
                 var cleanedData = new Dictionary<string, object>();
                 foreach (var item in incoming.data)
                 {
@@ -53,16 +52,13 @@ namespace IPS_PROJECT.Controllers
                 if (!cleanedData.ContainsKey("protocol"))
                     cleanedData["protocol"] = (double)incoming.protocol;
 
-                // ضيف الـ script_payload للموديل الجديد (multimodal v4)
                 cleanedData["script_payload"] = incoming.script_payload ?? "";
 
-                // استدعاء الموديل
                 var rawResult = await _aiService.GetRawPredictionAsync(cleanedData);
 
                 using var doc = JsonDocument.Parse(rawResult);
                 var root = doc.RootElement;
 
-                // الموديل الجديد بيرجع {"results": [...]}
                 JsonElement result;
                 if (root.TryGetProperty("results", out var resultsArray) && resultsArray.GetArrayLength() > 0)
                     result = resultsArray[0];
@@ -78,18 +74,13 @@ namespace IPS_PROJECT.Controllers
                 string Model_Attack_Type = result.GetProperty("predicted_class").GetString() ?? "Unknown";
                 double confidenceValue = result.GetProperty("class_confidence").GetDouble();
 
-                // الموديل الجديد بيرجع anomaly_probability (مش anomaly_score)
-                double anomalyScore = result.TryGetProperty("anomaly_probability", out var ap)
-                    ? ap.GetDouble()
-                    : (result.TryGetProperty("anomaly_score", out var asc) ? asc.GetDouble() : 0.0);
-
-
+                // تم تعديل منطق المقارنة ليتوافق مع الـ Confidence من الموديل الجديد
                 string Attack_Type;
                 if (!isAnomaly)
                 {
                     Attack_Type = "Benign";
                 }
-                else if (confidenceValue > 50)
+                else if (confidenceValue > 0.5) 
                 {
                     Attack_Type = Model_Attack_Type;
                 }
@@ -98,15 +89,13 @@ namespace IPS_PROJECT.Controllers
                     Attack_Type = "Unknown Attack";
                 }
 
-                // حفظ الحدث
                 var trafficEvent = new EVENTS
                 {
                     SourceIp = incoming.source_ip ?? "Unknown",
                     DestinationIp = incoming.destination_ip ?? "Unknown",
-                //    TrafficType =  "TCP"  ,
                     Prediction = isAnomaly ? "Anomaly" : "Non Anomaly",
                     AttackType = Attack_Type,
-                    Confidence = confidenceValue,
+                    Confidence = confidenceValue * 100, 
                     Status = isAnomaly ? "Blocked" : "Allowed",
                     Timestamp = DateTime.Now
                 };
@@ -114,34 +103,7 @@ namespace IPS_PROJECT.Controllers
                 _context.Events.Add(trafficEvent);
                 await _context.SaveChangesAsync();
 
-                /* if (trafficEvent.Status == "Blocked")
-                 {
-                     var notification = new AlertNotification
-                     {
-                         AttackType = Attack_Type,
-                         SourceIp = trafficEvent.SourceIp,
-                         DestinationIp = trafficEvent.DestinationIp,
-                         Prediction = isAnomaly ? "Anomaly" : "Non Anomaly",
-                         Confidence = confidenceValue,
-                       //  Protocol = trafficEvent.TrafficType,
-                         Timestamp = trafficEvent.Timestamp,
-                         IsRead = false
-                     };
-                     _context.AlertNotifications.Add(notification);
-                     await _context.SaveChangesAsync();
-                     await _hubContext.Clients.All.SendAsync("ReceiveAttackAlert", notification);
-                 }
-                 else
-                 {
-                     /* await _context.SaveChangesAsync();
-                      await _hubContext.Clients.All.SendAsync("ReceiveRefresh");*/
-                /*  await _context.SaveChangesAsync();
-              }*/
                 var totalEvents = await _context.Events.CountAsync();
-                /* if (totalEvents % 20 == 0)
-                 {
-                     await _hubContext.Clients.All.SendAsync("ReceiveRefresh");
-                 }*/
                 if (totalEvents % 20 == 0)
                 {
                     var last20Events = await _context.Events
@@ -149,12 +111,7 @@ namespace IPS_PROJECT.Controllers
                             .Take(20)
                             .ToListAsync();
 
-                  /*  last20Events = last20Events
-                        .OrderBy(x => x.Id)
-                        .ToList(); */
-
                     var batch = _batchBuilder.BuildBatch(last20Events);
-
 
                     if (batch.Status == "Blocked")
                     {
@@ -165,7 +122,6 @@ namespace IPS_PROJECT.Controllers
                             DestinationIp = batch.DestinationIp,
                             Prediction =  batch.Prediction,
                             Confidence =  batch.Confidence,
-                            //  Protocol = trafficEvent.TrafficType,
                             Timestamp = batch.Timestamp,
                             IsRead = false
                         };
@@ -175,16 +131,9 @@ namespace IPS_PROJECT.Controllers
                     }
                     else
                     {
-                        /* await _context.SaveChangesAsync();
-                         await _hubContext.Clients.All.SendAsync("ReceiveRefresh");*/
                         await _context.SaveChangesAsync();
                     }
-
-                    await _hubContext.Clients.All.SendAsync(
-                        "ReceiveNewBatch",
-                        batch
-                    );
-
+                    await _hubContext.Clients.All.SendAsync("ReceiveNewBatch", batch);
                 }
 
                 return Ok(new { source_ip = trafficEvent.SourceIp, destination_ip = trafficEvent.DestinationIp, attack_type = Attack_Type, confidence = confidenceValue, status = trafficEvent.Status });
@@ -195,11 +144,6 @@ namespace IPS_PROJECT.Controllers
             }
         }
 
-
-
-
-        // --- باقي الدوال (Export, GetDetails, MarkAsRead, Delete, ClearAll) تبقى كما هي دون تغيير ---
-
         [HttpGet("ExportTraffic")]
         public async Task<IActionResult> ExportTraffic()
         {
@@ -208,12 +152,10 @@ namespace IPS_PROJECT.Controllers
                 var events = await _context.Events.OrderByDescending(e => e.Timestamp).ToListAsync();
                 var builder = new StringBuilder();
                 builder.AppendLine("Source IP,Destination IP,Prediction, Attack_Type,Confidence,Status,Timestamp");
-
                 foreach (var e in events)
                 {
-                    builder.AppendLine($"{e.SourceIp},{e.DestinationIp},{e.Prediction}  ,{e.AttackType},{e.Confidence}%,{e.Status},{e.Timestamp}");
+                    builder.AppendLine($"{e.SourceIp},{e.DestinationIp},{e.Prediction},{e.AttackType},{e.Confidence}%,{e.Status},{e.Timestamp}");
                 }
-
                 return File(Encoding.UTF8.GetBytes(builder.ToString()), "text/csv", $"Traffic_Report_{DateTime.Now:yyyyMMdd}.csv");
             }
             catch (Exception ex)
@@ -235,22 +177,12 @@ namespace IPS_PROJECT.Controllers
         {
             try
             {
-                var unreadAlerts = await _context.AlertNotifications
-                                                 .Where(n => !n.IsRead)
-                                                 .ToListAsync();
-
-                foreach (var alert in unreadAlerts)
-                {
-                    alert.IsRead = true;
-                }
-
+                var unreadAlerts = await _context.AlertNotifications.Where(n => !n.IsRead).ToListAsync();
+                foreach (var alert in unreadAlerts) { alert.IsRead = true; }
                 await _context.SaveChangesAsync();
                 return Ok(new { message = "All alerts marked as read" });
             }
-            catch (Exception ex)
-            {
-                return BadRequest(new { error = ex.Message });
-            }
+            catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
         }
 
         [HttpDelete("DeleteNotification/{id}")]
@@ -258,7 +190,6 @@ namespace IPS_PROJECT.Controllers
         {
             var alert = await _context.AlertNotifications.FindAsync(id);
             if (alert == null) return NotFound();
-
             _context.AlertNotifications.Remove(alert);
             await _context.SaveChangesAsync();
             return Ok();
@@ -272,6 +203,5 @@ namespace IPS_PROJECT.Controllers
             await _context.SaveChangesAsync();
             return Ok();
         }
-
     }
 }

@@ -15,14 +15,13 @@ namespace IPS_PROJECT.Services
             _configuration = configuration;
         }
 
-        // الموديل الجديد (v4 multimodal) — يقبل {"flows": [...]}
         public async Task<string> GetRawPredictionAsync(object features)
         {
             var endpoint = _configuration["AiSettings:Endpoint"] ?? "http://ai-model-service:8000/predict";
             var apiKey   = _configuration["AiSettings:ApiKey"] ?? "";
 
-            // الـ API الجديد بيتوقع {"flows": [ {...flow fields...} ]}
-            var payload = new { flows = new[] { features } };
+            // التعديل: إرسال الـ features داخل قائمة (List) كما يتوقع الموديل
+            var payload = new { flows = new List<object> { features } };
 
             return await SendRequestAsync(endpoint, apiKey, payload);
         }
