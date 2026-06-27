@@ -38,7 +38,7 @@ namespace IPS_PROJECT.Controllers
                     return BadRequest(new { error = "missing data" });
 
                 // تحويل البيانات لقاموس
-                var cleanedData = new Dictionary<string, double>();
+                var cleanedData = new Dictionary<string, object>();
                 foreach (var item in incoming.data)
                 {
                     if (item.Value is JsonElement element)
@@ -46,11 +46,15 @@ namespace IPS_PROJECT.Controllers
                         if (element.ValueKind == JsonValueKind.True) cleanedData[item.Key] = 1.0;
                         else if (element.ValueKind == JsonValueKind.False) cleanedData[item.Key] = 0.0;
                         else if (element.ValueKind == JsonValueKind.Number) cleanedData[item.Key] = element.GetDouble();
+                        else if (element.ValueKind == JsonValueKind.String) cleanedData[item.Key] = element.GetString() ?? "";
                     }
                 }
 
                 if (!cleanedData.ContainsKey("protocol"))
                     cleanedData["protocol"] = (double)incoming.protocol;
+
+                // ضيف الـ script_payload للموديل الجديد (multimodal v4)
+                cleanedData["script_payload"] = incoming.script_payload ?? "";
 
                 // استدعاء الموديل
                 var rawResult = await _aiService.GetRawPredictionAsync(cleanedData);
@@ -58,8 +62,14 @@ namespace IPS_PROJECT.Controllers
                 using var doc = JsonDocument.Parse(rawResult);
                 var root = doc.RootElement;
 
-                // التعامل مع مخرجات الموديل (dense_v5)
-                var result = root.ValueKind == JsonValueKind.Array ? root[0] : root;
+                // الموديل الجديد بيرجع {"results": [...]}
+                JsonElement result;
+                if (root.TryGetProperty("results", out var resultsArray) && resultsArray.GetArrayLength() > 0)
+                    result = resultsArray[0];
+                else if (root.ValueKind == JsonValueKind.Array)
+                    result = root[0];
+                else
+                    result = root;
 
                 if (result.TryGetProperty("error", out var errorProp))
                     return BadRequest(new { error = errorProp.GetString() });
@@ -67,7 +77,11 @@ namespace IPS_PROJECT.Controllers
                 bool isAnomaly = result.GetProperty("is_anomaly").GetBoolean();
                 string Model_Attack_Type = result.GetProperty("predicted_class").GetString() ?? "Unknown";
                 double confidenceValue = result.GetProperty("class_confidence").GetDouble();
-                double anomalyScore = result.GetProperty("anomaly_score").GetDouble();
+
+                // الموديل الجديد بيرجع anomaly_probability (مش anomaly_score)
+                double anomalyScore = result.TryGetProperty("anomaly_probability", out var ap)
+                    ? ap.GetDouble()
+                    : (result.TryGetProperty("anomaly_score", out var asc) ? asc.GetDouble() : 0.0);
 
 
                 string Attack_Type;
