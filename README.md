@@ -1,113 +1,83 @@
-# IPS Project — DevOps & Monitoring Guide
+# DefendX — AI-Based Intrusion Prevention System (IPS)
 
-نظام Full DevOps لمشروع الـ AI-Based Intrusion Prevention System:
-Docker → Kubernetes (k3s) → GitHub Actions CI/CD → Prometheus + Grafana Monitoring → AWS RDS.
+DefendX is a full-stack, cloud-native Intrusion Prevention System that combines a Web Application Firewall (WAF), an AI-powered traffic inference service, and a real-time monitoring dashboard — deployed as a containerized microservice architecture on Kubernetes (k3s).
 
----
+Built as a graduation project (Communications & Electronics Engineering, Sohag University, 2026), DefendX demonstrates end-to-end DevOps ownership: from infrastructure provisioning and CI/CD to observability and AI-driven threat detection.
 
-## 1) المعمارية
+## 🏗️ Architecture
 
 ```
-GitHub Actions (workflow_dispatch)
-   │
-   ├─ test          → dotnet build
-   ├─ build-and-scan→ docker build (app + ai-model) + Trivy scan + push لـ Docker Hub
-   └─ deploy        → SSH للـ EC2 → kubectl apply (k8s/ + monitoring/)
-
-EC2 (t3.small, Public Subnet + IGW, k3s):
-   namespace ips-app
-     ├─ ips-app      (Deployment + NodePort :30500)  ← التطبيق نفسه
-     └─ ai-model     (Deployment + ClusterIP :8000)  ← FastAPI + TensorFlow model
-   namespace monitoring
-     ├─ prometheus   (Deployment + NodePort :30090)
-     └─ grafana      (Deployment + NodePort :30300)
-
-AWS RDS (SQL Server Express, db.t3.micro, Private — مش متاحة للإنترنت):
-   IPS_project database
-
-Windows Agent (جهاز منفصل):
-   agent/windows_traffic_agent.py → بيلتقط الـ network traffic الحقيقي ويبعته
-   لـ /api/Traffic/ProcessTraffic على الـ EC2
+Internet → WAF (ModSecurity/Nginx) → k3s Cluster (AWS EC2)
+                                          ├── ASP.NET Core MVC Dashboard
+                                          ├── FastAPI AI Inference Service (Keras multimodal model)
+                                          ├── AWS RDS (persistent storage)
+                                          └── Prometheus + Grafana (monitoring)
 ```
 
-التطبيق بيعرض `/metrics` (عن طريق `prometheus-net.AspNetCore`)، وProteus بيجمعها
-تلقائيًا بفضل annotations على الـ pod (`prometheus.io/scrape: "true"`).
-الـ AI model API بيتكلم معاه التطبيق داخليًا بس عن طريق `ai-model-service` (مش متاح للبرة).
+*(Add your architecture diagram image here — e.g. `docs/architecture.png`)*
 
----
+## ⚙️ Key Components
 
-## 2) AWS — الترتيب اللي محتاجه
+| Component | Description | Tech Stack |
+|---|---|---|
+| **WAF Layer** | Filters and inspects incoming traffic before it reaches the application | ModSecurity, Nginx |
+| **AI Inference Service** | Analyzes traffic patterns and flags/blocks malicious requests in real time | FastAPI, Keras (multimodal model), Python |
+| **Dashboard** | Admin interface for monitoring alerts, managing users, and reviewing traffic decisions | ASP.NET Core MVC, Identity |
+| **Orchestration** | Container orchestration and service scheduling | Kubernetes (k3s) on AWS EC2 |
+| **CI/CD** | Automated build, test, and deployment pipeline | GitHub Actions |
+| **Monitoring** | Metrics collection and visualization for system health and threat activity | Prometheus, Grafana |
+| **Database** | Persistent storage for users, logs, and detection history | AWS RDS |
 
-1. **EC2 t3.small** في **Public Subnet** متوصلة بـ Internet Gateway، مع Public IP مفعّل.
-   Security Group مفتوحة على: `22` (SSH)، `30500` (App)، `30090` (Prometheus)، `30300` (Grafana).
-2. **RDS** (SQL Server Express, db.t3.micro, Free tier, **Public access = No**) في نفس الـ VPC،
-   مع Security Group بتاعتها بتسمح بدخول من Security Group بتاع الـ EC2 على بورت `1433` بس.
+## ✨ Features
 
-تفاصيل خطوة بخطوة في `k8s/README.md`.
+- Real-time traffic inspection and AI-based threat classification
+- WAF-enforced HTTPS with request filtering before traffic hits the application layer
+- Admin dashboard with user management and approval workflows
+- Live monitoring dashboards (Prometheus metrics + Grafana visualizations)
+- Fully containerized services deployed via Kubernetes manifests
+- Automated CI/CD pipeline for build and deployment
+- Standalone Windows-packaged distributable (PyInstaller + self-contained .NET executable + launcher) for offline demos
 
----
+## 🚀 Getting Started
 
-## 3) تجهيز الماشين (مرة واحدة، بعد ما الـ EC2 تكون شغالة)
+### Prerequisites
+- Docker & Docker Compose
+- k3s (or any Kubernetes cluster)
+- .NET 8 SDK
+- Python 3.10+
 
+### Local Setup (Docker Compose)
 ```bash
-git clone <repo-url>
-cd IPS_Final_Project/scripts
-chmod +x setup-vm.sh
-./setup-vm.sh
+git clone https://github.com/mohammedhamdy102003/IPS_Final_Project.git
+cd IPS_Final_Project
+docker-compose up --build
 ```
 
-السكربت بيركّب **k3s** (مش Minikube — أخف بكتير في الـ RAM ومحتاجش Docker على الماشين خالص)،
-وبيفعّل SSH.
-
----
-
-## 4) إعداد GitHub Secrets
-
-من `Settings → Secrets and variables → Actions` ضيف:
-
-| Secret            | القيمة                                                     |
-|--------------------|-------------------------------------------------------------|
-| `DOCKER_USERNAME`  | يوزر Docker Hub بتاعك                                       |
-| `DOCKER_PASSWORD`  | Access Token من Docker Hub (مش الباسورد العادي)             |
-| `VM_IP`            | الـ Public IP بتاع الـ EC2                                  |
-| `VM_USER`          | اليوزر بتاع الماشين دي                                      |
-| `VM_SSH_KEY`       | باسورد اليوزر ده (الـ workflow بيستخدمه كـ SSH password)     |
-
-⚠️ تأكد إن `k8s/04-app-deployment.yaml` و`k8s/05-ai-model-deployment.yaml`
-فيهم اسم Docker Hub image بتاعك صح (حاليًا `mohammed102003/...`).
-
-⚠️ قبل أول تشغيل، لازم تملأ `k8s/01-secret.yaml` بمعلومات الـ RDS الحقيقية بتاعتك
-(Endpoint, username, password) — التفاصيل في `k8s/README.md`.
-
----
-
-## 5) تشغيل الديبلوي
-
-من تاب **Actions** → اختار **"Professional Manual CI/CD"** → **Run workflow**.
-الـ pipeline هيعمل build + scan + push لصورتين (app + ai-model)، وبعدين يديبلوي كل حاجة
-(app + ai-model + monitoring) أوتوماتيك مع بعض.
-
----
-
-## 6) اللينكات بعد الديبلوي
-
-```
-http://<EC2_PUBLIC_IP>:30500   → التطبيق نفسه
-http://<EC2_PUBLIC_IP>:30090   → Prometheus
-http://<EC2_PUBLIC_IP>:30300   → Grafana (admin / admin123)
+### Kubernetes Deployment
+```bash
+kubectl apply -f k8s/
 ```
 
----
+*(Fill in environment variables / secrets setup instructions here — appsettings.json, DB connection string, etc.)*
 
-## 7) تشغيل الإيجنت (محاكاة/التقاط traffic حقيقي)
+## 📊 Monitoring
 
-شوف `agent/README.md`. السكربت بيشتغل على جهاز Windows منفصل، ولازم تحط فيه
-الـ Public IP بتاع الـ EC2 بعد ما تاخده.
+Grafana dashboards are pre-configured under `monitoring/` to visualize:
+- Request/traffic volume
+- Blocked vs. allowed requests
+- AI inference latency
+- System resource usage (CPU/Memory)
 
----
+## 🧠 Why This Project
 
-## 8) ملاحظات أمان مهمة (للمستقبل، مش لازم تعملها دلوقتي)
+Most IPS solutions rely purely on static rule sets. DefendX combines traditional WAF filtering with a machine learning inference layer, allowing it to catch patterns that static rules miss — while keeping full observability into every decision made.
 
-- `appsettings.json` فيه إيميل وباسورد Gmail App Password مكتوبين صريح وبيترفعوا عالريبو العام.
-  الأفضل تتنقل لـ k8s Secret + environment variable زي ما اتعمل بالظبط مع باسورد RDS.
-- بعد التسليم، روح RDS واعمل Delete للـ instance عشان متترفعش عليك فلوس بعد ما الـ Free tier تخلص.
+## 👤 Author
+
+**Mohammed Hamdy Mahmoud**
+DevOps Lead & Full-Stack Developer
+[LinkedIn](https://www.linkedin.com/in/mohamed-hamdy-384714316) · [GitHub](https://github.com/mohammedhamdy102003)
+
+## 📄 License
+
+*(Add a license if you want the repo to be reusable — MIT is a common choice for portfolio projects)*
