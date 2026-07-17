@@ -78,6 +78,3 @@ Most IPS solutions rely purely on static rule sets. DefendX combines traditional
 DevOps Lead & Full-Stack Developer
 [LinkedIn](https://www.linkedin.com/in/mohamed-hamdy-384714316) · [GitHub](https://github.com/mohammedhamdy102003)
 
-## 📄 License
-
-*(Add a license if you want the repo to be reusable — MIT is a common choice for portfolio projects)*
