@@ -25,9 +25,9 @@ spec:
       labels:
         app: prometheus
     spec:
-      serviceAccountName: prometheus      # مهم عشان يقرأ K8s API
+      serviceAccountName: prometheus      
       securityContext:
-        runAsUser: 65534                  # nobody - أمان أكتر
+        runAsUser: 65534                
         fsGroup: 65534
       containers:
         - name: prometheus
@@ -35,8 +35,8 @@ spec:
           args:
             - '--config.file=/etc/prometheus/prometheus.yml'
             - '--storage.tsdb.path=/prometheus'
-            - '--storage.tsdb.retention.time=2d'    # كفاية للديمو، بتقلل استهلاك الـ RAM
-            - '--web.enable-lifecycle'               # تقدر تعمل reload بدون restart
+            - '--storage.tsdb.retention.time=2d'   
+            - '--web.enable-lifecycle'               
           ports:
             - containerPort: 9090
           resources:
