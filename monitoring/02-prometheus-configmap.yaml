@@ -11,13 +11,12 @@ data:
 
     scrape_configs:
 
-      # ── 1. Prometheus نفسه ──
+     
       - job_name: 'prometheus'
         static_configs:
           - targets: ['localhost:9090']
 
-      # ── 2. .NET App metrics ──
-      # الـ app لازم يكون فيه /metrics endpoint (شوف الـ README)
+ 
       - job_name: 'ips-dotnet-app'
         metrics_path: '/metrics'
         static_configs:
@@ -27,7 +26,7 @@ data:
             target_label: instance
             replacement: 'ips-app'
 
-      # ── 3. Kubernetes Nodes (CPU, Memory, Disk) ──
+      
       - job_name: 'kubernetes-nodes'
         scheme: https
         tls_config:
