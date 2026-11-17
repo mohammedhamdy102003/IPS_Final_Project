@@ -69,7 +69,7 @@ spec:
             - name: GF_SECURITY_ADMIN_USER
               value: "admin"
             - name: GF_SECURITY_ADMIN_PASSWORD
-              value: "admin123"        # ← غيّره لو حابب
+              value: "admin123"      
             - name: GF_USERS_ALLOW_SIGN_UP
               value: "false"
           resources:
