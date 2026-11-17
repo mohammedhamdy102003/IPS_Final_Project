@@ -28,7 +28,7 @@ spec:
             limits:
               memory: "1280Mi"
               cpu: "1000m"
-          # تم حذف الـ Probes لتجنب مشاكل الـ 404 Not Found
+         
 ---
 apiVersion: v1
 kind: Service
